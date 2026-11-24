@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: EUPL-1.2
+[Unit]
+Description=dongie — dashboard + API for the 4G dongle
+After=network-online.target ModemManager.service NetworkManager.service tailscaled.service
+Wants=network-online.target
+
+[Service]
+User=dongie
+Group=dongie
+ExecStart=/usr/local/bin/dongie serve
+Restart=always
+RestartSec=5
+StateDirectory=dongie
+ConfigurationDirectory=dongie
+ConfigurationDirectoryMode=0750
+# light hardening (no NoNewPrivileges: we need sudo for the few qmicli calls)
+ProtectHome=yes
+PrivateTmp=yes
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

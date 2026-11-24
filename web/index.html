@@ -1,0 +1,1232 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: EUPL-1.2 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>dongie</title>
+<style>
+/* Catppuccin — Latte (light) / Mocha (dark). https://catppuccin.com/palette */
+:root{
+  --rosewater:#dc8a78;--flamingo:#dd7878;--pink:#ea76cb;--mauve:#8839ef;--red:#d20f39;--maroon:#e64553;--peach:#fe640b;
+  --yellow:#df8e1d;--green:#40a02b;--teal:#179299;--sky:#04a5e5;--sapphire:#209fb5;--blue:#1e66f5;--lavender:#7287fd;
+  --text:#4c4f69;--subtext1:#5c5f77;--subtext0:#6c6f85;--overlay1:#8c8fa1;--overlay0:#9ca0b0;
+  --surface2:#acb0be;--surface1:#bcc0cc;--surface0:#ccd0da;--base:#eff1f5;--mantle:#e6e9ef;--crust:#dce0e8;
+  --shadow:0 1px 2px rgba(76,79,105,.08),0 4px 14px rgba(76,79,105,.06);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=latte]){
+  --rosewater:#f5e0dc;--flamingo:#f2cdcd;--pink:#f5c2e7;--mauve:#cba6f7;--red:#f38ba8;--maroon:#eba0ac;--peach:#fab387;
+  --yellow:#f9e2af;--green:#a6e3a1;--teal:#94e2d5;--sky:#89dceb;--sapphire:#74c7ec;--blue:#89b4fa;--lavender:#b4befe;
+  --text:#cdd6f4;--subtext1:#bac2de;--subtext0:#a6adc8;--overlay1:#7f849c;--overlay0:#6c7086;
+  --surface2:#585b70;--surface1:#45475a;--surface0:#313244;--base:#1e1e2e;--mantle:#181825;--crust:#11111b;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}}
+:root[data-theme=mocha]{
+  --rosewater:#f5e0dc;--flamingo:#f2cdcd;--pink:#f5c2e7;--mauve:#cba6f7;--red:#f38ba8;--maroon:#eba0ac;--peach:#fab387;
+  --yellow:#f9e2af;--green:#a6e3a1;--teal:#94e2d5;--sky:#89dceb;--sapphire:#74c7ec;--blue:#89b4fa;--lavender:#b4befe;
+  --text:#cdd6f4;--subtext1:#bac2de;--subtext0:#a6adc8;--overlay1:#7f849c;--overlay0:#6c7086;
+  --surface2:#585b70;--surface1:#45475a;--surface0:#313244;--base:#1e1e2e;--mantle:#181825;--crust:#11111b;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+html{background:var(--base)}
+body{margin:0;background:var(--base);color:var(--text);font:14.5px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.good{color:var(--green)}.ok{color:var(--yellow)}.bad{color:var(--red);font-weight:600}.mut{color:var(--subtext0)}.small{font-size:12px}
+
+/* header + tabs */
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--mantle) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--surface0)}
+.hwrap{max-width:1240px;margin:0 auto;padding:10px 16px 0;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:20px;background:linear-gradient(135deg,var(--mauve),var(--pink));box-shadow:var(--shadow)}
+.title h1{font-size:18px;margin:0;line-height:1.15;background:linear-gradient(90deg,var(--mauve),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
+.title .sub{color:var(--subtext0);font-size:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;flex:1;justify-content:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 10px;border-radius:99px;background:var(--surface0);color:var(--subtext1);white-space:nowrap}
+.chip b{color:var(--text);font-weight:600}
+.chip.good{background:color-mix(in srgb,var(--green) 18%,var(--surface0))}
+.chip.ok{background:color-mix(in srgb,var(--yellow) 22%,var(--surface0))}
+.chip.bad{background:color-mix(in srgb,var(--red) 20%,var(--surface0))}
+.hright{display:flex;gap:8px;align-items:center}
+nav{max-width:1240px;margin:0 auto;padding:6px 12px 0;display:flex;gap:2px;overflow-x:auto}
+nav a{color:var(--subtext0);text-decoration:none;padding:8px 14px;border-bottom:2px solid transparent;font-weight:600;font-size:14px;white-space:nowrap;display:flex;gap:6px;align-items:center}
+nav a:hover{color:var(--text)}
+nav a[hidden]{display:none}
+nav{scrollbar-width:none}nav::-webkit-scrollbar{display:none}
+nav a.act{color:var(--mauve);border-bottom-color:var(--mauve)}
+nav .badge{font-size:11px}
+button{font:inherit;font-size:13.5px;border:1px solid var(--surface1);background:var(--surface0);color:var(--text);border-radius:9px;padding:5px 12px;cursor:pointer;transition:background .15s}
+button:hover{background:var(--surface1)}
+button.pri{background:var(--mauve);border-color:var(--mauve);color:var(--base);font-weight:600}
+button.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,var(--surface1))}
+button.ghost{background:transparent;border-color:transparent;padding:5px 8px}
+button.seg{border-radius:0;margin-left:-1px;padding:3px 10px;font-size:12.5px}
+button.seg:first-child{border-radius:8px 0 0 8px}button.seg:last-child{border-radius:0 8px 8px 0}
+button.seg.on{background:var(--mauve);border-color:var(--mauve);color:var(--base)}
+button:disabled{opacity:.5;cursor:default}
+#callbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;width:min(560px,calc(100% - 24px));background:var(--mantle);border:2px solid var(--green);border-radius:14px;box-shadow:0 8px 30px rgb(0 0 0 / .25);padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+#callbar[hidden]{display:none}
+#callbar.ringing{border-color:var(--peach);animation:ringpulse 1.2s infinite}
+@keyframes ringpulse{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--peach) 35%,transparent)}}
+#callbar .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#callbar .who{font-weight:700;font-size:16px}#callbar .st{color:var(--subtext0);font-size:12.5px}
+#callbar .sp{flex:1}
+#callbar button.ok{background:var(--green);border-color:var(--green);color:var(--base);font-weight:700}
+#callbar button.end{background:var(--red);border-color:var(--red);color:var(--base);font-weight:700}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.keypad button{font-size:17px;padding:8px}
+.dial{display:flex;gap:8px;margin-top:10px}.dial input{flex:1;min-width:0}
+.hint{font-size:12.5px;color:var(--subtext0);margin-top:8px}
+
+/* layout */
+main{max-width:1240px;margin:0 auto;padding:16px 16px 8px}
+section[hidden]{display:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;align-items:start}
+.grid.wide{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}
+@media (max-width:480px){.grid.wide{grid-template-columns:1fr}}
+.span2{grid-column:span 2}@media (max-width:900px){.span2{grid-column:auto}}
+.full{grid-column:1/-1}
+.card{--acc:var(--mauve);background:var(--mantle);border:1px solid var(--surface0);border-radius:14px;padding:13px 15px 12px;min-width:0;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--acc);opacity:.9}
+.card h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--acc);margin:1px 0 9px;display:flex;align-items:center;gap:7px}
+.card h2 .ic{font-size:15px}
+.card h2 .r{margin-left:auto;display:flex;gap:6px;align-items:center}
+.hero{display:flex;align-items:center;gap:9px;margin:-1px 0 8px;flex-wrap:wrap}
+.hero .big{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.hero .sm{color:var(--subtext0);font-size:12.5px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:6px;margin:4px 0 6px}
+.tile{background:var(--crust);border-radius:9px;padding:5px 8px;min-width:0}
+.tile .l{font-size:11px;color:var(--subtext0);text-transform:uppercase;letter-spacing:.04em}
+.tile .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .v small{font-size:11px;font-weight:500;color:var(--subtext0)}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;font-size:13.5px}
+.kv.two{grid-template-columns:max-content 1fr max-content 1fr}
+@media (max-width:560px){.kv.two{grid-template-columns:max-content 1fr}}
+.kv .k{color:var(--subtext0)}
+.kv .v{text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.line{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--subtext0);margin-top:6px;flex-wrap:wrap}
+.line b{color:var(--text);font-weight:600}
+.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--surface0);color:var(--subtext1);text-transform:none;letter-spacing:0;white-space:nowrap}
+.pill.good{background:color-mix(in srgb,var(--green) 20%,var(--surface0));color:var(--green)}
+.pill.ok{background:color-mix(in srgb,var(--yellow) 22%,var(--surface0));color:var(--yellow)}
+.pill.bad{background:color-mix(in srgb,var(--red) 20%,var(--surface0));color:var(--red)}
+.pills{display:flex;gap:4px;flex-wrap:wrap}
+.bar{height:6px;background:var(--surface0);border-radius:4px;overflow:hidden;margin:3px 0 4px}
+.bar>i{display:block;height:100%;background:var(--acc);border-radius:4px}
+.bar.ok>i{background:var(--yellow)}.bar.bad>i{background:var(--red)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.sig{display:inline-flex;align-items:flex-end;gap:2px;height:14px}
+.sig i{width:4px;border-radius:1.5px;background:var(--surface2)}
+.sig i:nth-child(1){height:30%}.sig i:nth-child(2){height:52%}.sig i:nth-child(3){height:76%}.sig i:nth-child(4){height:100%}
+.sig.l1 i:nth-child(-n+1){background:var(--red)}
+.sig.l2 i:nth-child(-n+2){background:var(--yellow)}
+.sig.l3 i:nth-child(-n+3),.sig.l4 i:nth-child(-n+4){background:var(--green)}
+.hist{display:flex;align-items:flex-end;gap:2px;height:48px;padding:4px;background:var(--crust);border-radius:8px}
+.hist i{flex:1;background:var(--acc);border-radius:3px 3px 1px 1px;opacity:.85}
+.hist i.blank{background:var(--surface0);height:4%;opacity:.6}
+.hist.big{height:120px}
+.temps{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px}
+.svc{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px}
+.svc div{display:flex;align-items:center;gap:7px;font-size:12.5px;background:var(--crust);border-radius:8px;padding:4px 8px;min-width:0}
+.svc span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--surface2)}
+.dot.good{background:var(--green);box-shadow:0 0 6px var(--green)}.dot.bad{background:var(--red)}.dot.ok{background:var(--yellow)}
+.leds{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
+.led{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--subtext1)}
+.led i{width:13px;height:13px;border-radius:50%;background:var(--surface1);border:1px solid var(--surface2)}
+.led.on.blue i{background:var(--blue);box-shadow:0 0 10px var(--blue)}
+.led.on.green i{background:var(--green);box-shadow:0 0 10px var(--green)}
+.led.on.red i{background:var(--red);box-shadow:0 0 10px var(--red)}
+.led.blink i{animation:blink 2s infinite}
+@keyframes blink{0%,15%{opacity:1}16%,100%{opacity:.25}}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{text-align:left;padding:4px 5px;border-bottom:1px solid var(--surface0);white-space:nowrap}
+th{color:var(--subtext0);font-weight:500;font-size:12px}
+tr.serving td{background:color-mix(in srgb,var(--blue) 10%,transparent)}
+.tscroll{overflow-x:auto}
+details.health{margin-top:8px;font-size:13px}
+details.health summary{cursor:pointer;padding:3px 0;font-weight:600}
+details.health .hw{color:var(--subtext0);padding:4px 0 4px 18px;border-top:1px solid var(--surface0);overflow-wrap:anywhere}
+
+/* charts */
+.chart{position:relative;margin-top:4px}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.chart .ax{fill:var(--subtext0);font-size:10px}
+.chart .grid line{stroke:var(--surface0);stroke-width:1}
+.chart .z-good{fill:var(--green);opacity:.07}.chart .z-ok{fill:var(--yellow);opacity:.07}.chart .z-bad{fill:var(--red);opacity:.07}
+.chart path{fill:none;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.chart .cur{stroke:var(--overlay1);stroke-width:1;stroke-dasharray:3 3}
+.chart .tip{position:absolute;top:0;pointer-events:none;background:var(--crust);border:1px solid var(--surface1);border-radius:8px;padding:3px 8px;font-size:12px;white-space:nowrap;display:none;z-index:2}
+.legend{display:flex;gap:12px;font-size:12px;color:var(--subtext0);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.strip{display:flex;height:12px;border-radius:4px;overflow:hidden;margin-top:6px;background:var(--surface0)}
+.strip{position:relative}.strip i{position:absolute;top:0;bottom:0}
+.hbar{display:grid;grid-template-columns:90px 1fr 92px;gap:8px;align-items:center;font-size:13px;margin:3px 0}
+.hbar .b{height:12px;background:var(--surface0);border-radius:4px;overflow:hidden}
+.hbar .b i{display:block;height:100%;border-radius:4px}
+.hbar .p{text-align:right;color:var(--subtext0);font-variant-numeric:tabular-nums}
+.dgroups{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px 22px}
+.dg-title{font-weight:700;color:var(--acc);margin:2px 0 4px;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+.form{display:grid;grid-template-columns:max-content 1fr;gap:6px 10px;align-items:center;font-size:13.5px;max-width:520px}
+.form input,.form select{font:inherit;background:var(--base);color:var(--text);border:1px solid var(--surface1);border-radius:9px;padding:6px 10px;outline:none;min-width:0}
+.form input:focus,.form select:focus{border-color:var(--mauve);box-shadow:0 0 0 3px color-mix(in srgb,var(--mauve) 25%,transparent)}
+.sub-h{font-weight:700;font-size:12.5px;color:var(--acc);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px;padding-top:10px;border-top:1px solid var(--surface0)}
+.sub-h:first-of-type{border-top:0;padding-top:0;margin-top:2px}
+.msgline{font-size:13px;margin-top:8px;min-height:1.2em}
+.scanlist{display:flex;flex-direction:column;gap:3px;margin-top:6px;max-height:220px;overflow:auto}
+.scanlist div{display:flex;justify-content:space-between;gap:10px;padding:5px 9px;border-radius:8px;background:var(--crust);cursor:pointer;font-size:13px}
+.scanlist div:hover{background:var(--surface0)}
+.netrow{border-top:1px solid var(--surface0);padding:8px 0}.netrow:first-of-type{border-top:0}
+.netrow .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.netrow .top b{font-size:14.5px}
+.chbars{display:grid;grid-template-columns:repeat(13,1fr);gap:3px;align-items:end;height:56px;margin-top:6px}
+.chbars div{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:10px;color:var(--subtext0)}
+.chbars i{display:block;width:100%;background:var(--peach);border-radius:3px 3px 0 0;opacity:.8;min-height:2px}
+.chbars div.me i{background:var(--mauve);opacity:1}
+.scanrow{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:6px 9px;border-radius:8px;background:var(--crust);cursor:pointer;font-size:13px}
+.scanrow:hover{background:var(--surface0)}
+.scanrow .meta{color:var(--subtext0);font-size:12px}
+textarea.cfg{width:100%;min-height:150px;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--base);color:var(--text);border:1px solid var(--surface1);border-radius:9px;padding:8px;resize:vertical}
+label.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:6px 0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;overflow-wrap:anywhere}
+td.mono{white-space:normal;min-width:120px}
+.empty-note{color:var(--subtext0);font-size:13px;padding:14px 0;text-align:center}
+
+/* sms */
+.smswrap{display:grid;grid-template-columns:260px 1fr;gap:14px;min-height:380px}
+@media (max-width:720px){.smswrap{grid-template-columns:1fr}.convs{max-height:200px}}
+.convs{border-right:1px solid var(--surface0);padding-right:10px;max-height:480px;overflow:auto;display:flex;flex-direction:column;gap:3px}
+.conv{padding:8px 10px;border-radius:10px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.conv:hover{background:var(--surface0)}
+.conv.sel{background:color-mix(in srgb,var(--mauve) 18%,var(--surface0))}
+.conv .n{font-weight:600}
+.conv .p{color:var(--subtext0);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.conv.new .n{color:var(--mauve)}
+.badge{background:var(--mauve);color:var(--base);border-radius:99px;font-size:11.5px;font-weight:700;padding:1px 7px;align-self:center}
+.thread{display:flex;flex-direction:column;min-width:0}
+.msgs{flex:1;overflow:auto;max-height:440px;min-height:240px;display:flex;flex-direction:column;gap:7px;padding:10px;background:var(--crust);border-radius:12px}
+.m{max-width:78%;padding:8px 12px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}
+.m.in{background:var(--surface0);align-self:flex-start;border-bottom-left-radius:5px}
+.m.out{background:var(--mauve);color:var(--base);align-self:flex-end;border-bottom-right-radius:5px}
+.m .meta{font-size:11px;opacity:.75;margin-top:3px;text-align:right}
+.compose{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:stretch}
+.compose input,.compose textarea,dialog input{font:inherit;background:var(--base);color:var(--text);border:1px solid var(--surface1);border-radius:10px;padding:8px 11px;outline:none}
+.compose input:focus,.compose textarea:focus,dialog input:focus{border-color:var(--mauve);box-shadow:0 0 0 3px color-mix(in srgb,var(--mauve) 25%,transparent)}
+.compose textarea{flex:1;min-width:200px;resize:vertical;min-height:42px}
+.compose .cnt{font-size:12px;color:var(--subtext0);align-self:center}
+.msg-empty{color:var(--subtext0);margin:auto;text-align:center;padding:30px 10px;white-space:pre-line}
+dialog{border:1px solid var(--surface1);border-radius:16px;background:var(--mantle);color:var(--text);padding:22px;min-width:300px;box-shadow:var(--shadow)}
+dialog::backdrop{background:color-mix(in srgb,var(--crust) 70%,transparent);backdrop-filter:blur(3px)}
+dialog h3{margin:0 0 14px;color:var(--mauve)}
+dialog label{font-size:13px;color:var(--subtext0)}
+dialog input{display:block;width:100%;margin:5px 0 12px}
+.err{color:var(--red);min-height:1.2em;font-size:13px}
+footer{color:var(--overlay1);font-size:12px;text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <div class="logo">🐹</div>
+    <div class="title"><h1 id="title">dongie</h1><div class="sub" id="subtitle">loading…</div></div>
+    <div class="chips" id="chips"></div>
+    <div class="hright">
+      <button class="ghost" id="themeBtn" title="Theme"></button>
+      <span class="chip" id="who"></span>
+      <button class="pri" id="loginBtn">Log in</button>
+      <button id="logoutBtn" hidden>Log out</button>
+    </div>
+  </div>
+  <nav id="nav">
+    <a href="#home" data-tab="home">🏠 Home</a>
+    <a href="#mobile" data-tab="mobile">📡 Mobile</a>
+    <a href="#network" data-tab="network">📶 Network</a>
+    <a href="#system" data-tab="system">🖥 System</a>
+    <a href="#messages" data-tab="messages" id="navMsgs" hidden>💬 Messages <span class="badge" id="navBadge" hidden></span></a>
+  </nav>
+</header>
+<main>
+  <section id="tab-home"><div class="grid" id="homeGrid"></div></section>
+  <section id="tab-mobile" hidden><div class="grid wide" id="mobileGrid"></div></section>
+  <section id="tab-network" hidden><div class="grid wide" id="networkGrid"></div></section>
+  <section id="tab-system" hidden><div class="grid wide" id="systemGrid"></div></section>
+  <section id="tab-messages" hidden>
+    <div class="card" style="--acc:var(--mauve)">
+      <h2><span class="ic">💬</span>Messages <span class="r"><span class="pill" id="unread"></span></span></h2>
+      <div class="smswrap">
+        <div class="convs" id="convs"></div>
+        <div class="thread">
+          <div class="msgs" id="msgs"></div>
+          <div class="compose">
+            <input id="to" placeholder="+34…" size="15" autocomplete="off" inputmode="tel">
+            <textarea id="text" placeholder="Message (Ctrl+Enter to send)"></textarea>
+            <span class="cnt" id="cnt"></span>
+            <button class="pri" id="sendBtn">Send</button>
+          </div>
+          <div class="err" id="smsErr"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer id="foot"></footer>
+<div id="callbar" hidden></div>
+
+<dialog id="loginDlg">
+  <form method="dialog" id="loginForm">
+    <h3>🐹 Log in to dongie</h3>
+    <label>User<input id="lu" autocomplete="username" required></label>
+    <label>Password<input id="lp" type="password" autocomplete="current-password" required></label>
+    <div class="err" id="lerr"></div>
+    <div class="actions"><button class="pri" id="lgo" value="go">Log in</button><button value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const SVGNS = "http://www.w3.org/2000/svg";
+let me = {role: "none"}, status = null, msgs = [], calls = [], sel = null, hist = null, histAt = 0;
+let tab = "home", range = 3600;
+const wf = {ssid: null, pw: "", channel: null, jssid: "", jpw: "", scan: null, msg: "", msgCls: "", busy: false,
+  wgname: "", wgconf: "", wgall: false, wgauto: false, test: null, exitSel: null};
+let net = null, netAt = 0;
+const openDetails = new Set(), chartCache = new Map();
+function det(key, summary, cls) { const d = el("details", cls || ""); d.open = openDetails.has(key); d.ontoggle = () => { d.open ? openDetails.add(key) : openDetails.delete(key); }; d.appendChild(el("summary", null, summary)); return d; }
+function ago(unix) { if (!unix) return "never"; const s = Math.max(0, Date.now() / 1000 - unix); return s < 90 ? Math.round(s) + " s ago" : s < 5400 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago"; }
+function pctBars(p) { return sigBars(p >= 75 ? 4 : p >= 50 ? 3 : p >= 30 ? 2 : p > 0 ? 1 : 0); }
+function focusedInput() { const a = document.activeElement; return a && $("networkGrid").contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName); }
+function chFromFreq(f) { if (!f) return null; if (f === 2484) return 14; if (f >= 2412 && f <= 2472) return (f - 2407) / 5; if (f >= 5000) return Math.round((f - 5000) / 5); return null; }
+try { range = +localStorage.getItem("dongie-range") || 3600; } catch (_) {}
+
+// ---------- theme ----------
+const THEMES = ["auto", "latte", "mocha"], TICON = {auto: "🌗", latte: "☀️", mocha: "🌙"};
+function getTheme() { try { return localStorage.getItem("dongie-theme") || "auto"; } catch (_) { return "auto"; } }
+function applyTheme(t) {
+  if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t);
+  $("themeBtn").textContent = TICON[t]; $("themeBtn").title = "Theme: " + t + " (click to change)";
+}
+$("themeBtn").onclick = () => { const t = THEMES[(THEMES.indexOf(getTheme()) + 1) % 3]; try { localStorage.setItem("dongie-theme", t); } catch (_) {} applyTheme(t); chartCache.clear(); renderTab(); };
+applyTheme(getTheme());
+
+async function api(path, opt = {}) {
+  opt.headers = Object.assign({"X-Dongie": "1"}, opt.headers || {});
+  if (opt.json !== undefined) { opt.body = JSON.stringify(opt.json); opt.headers["Content-Type"] = "application/json"; }
+  const r = await fetch(path, Object.assign({credentials: "same-origin"}, opt));
+  let body = null; try { body = await r.json(); } catch (_) {}
+  if (!r.ok) throw new Error((body && body.error) || ("HTTP " + r.status));
+  return body;
+}
+
+// ---------- helpers ----------
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined && text !== null) e.textContent = text; return e; }
+function sv(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); return e; }
+function bytes(n) { if (n == null) return "—"; const u = ["B","KB","MB","GB","TB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i ? n.toFixed(1) : n) + " " + u[i]; }
+function dur(s) { if (s == null) return "—"; const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + (d || h ? h + "h " : "") + m + "m"; }
+function rate(v, good, ok) { if (v == null) return "bad"; return v > good ? "good" : v >= ok ? "ok" : "bad"; }
+function stateCls(s) { return ["connected","active","Running","activated","attached"].includes(s) ? "good" : ["registered","connecting","searching","activating","Starting","enabling","enabled"].includes(s) ? "ok" : "bad"; }
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue("--" + n).trim(); }
+function sigLevel(l) {
+  if (l.rsrp != null) return l.rsrp > -85 ? 4 : l.rsrp > -95 ? 3 : l.rsrp >= -105 ? 2 : l.rsrp > -115 ? 1 : 0;
+  if (l.wcdma_rssi != null) return l.wcdma_rssi > -65 ? 4 : l.wcdma_rssi > -75 ? 3 : l.wcdma_rssi >= -95 ? 2 : l.wcdma_rssi > -105 ? 1 : 0;
+  return 0;
+}
+function sigBars(level) { const s = el("span", "sig l" + level); for (let i = 0; i < 4; i++) s.appendChild(el("i")); return s; }
+const BAND_COLORS = ["blue", "teal", "peach", "mauve", "green", "pink", "sapphire", "yellow", "lavender", "maroon"];
+function bandColor(b) { if (!b || b === "no network") return cssVar("red"); if (b === "unknown band") return cssVar("overlay0"); let h = 0; for (const c of b) h = (h * 31 + c.charCodeAt(0)) >>> 0; return cssVar(BAND_COLORS[h % BAND_COLORS.length]); }
+function techName(t) { return t ? (t === "lte" ? "4G LTE" : "3G " + t.toUpperCase()) : null; }
+
+function card(title, icon, acc, right, cls) {
+  const c = el("div", "card " + (cls || "")); c.style.setProperty("--acc", "var(--" + acc + ")");
+  const h = el("h2"); h.appendChild(el("span", "ic", icon)); h.appendChild(document.createTextNode(title));
+  if (right) { const r = el("span", "r"); (Array.isArray(right) ? right : [right]).forEach(x => r.appendChild(x)); h.appendChild(r); }
+  c.appendChild(h); return c;
+}
+function pill(text, cls) { return el("span", "pill " + (cls || ""), text); }
+function hero(c, big, small, cls, pre) { const h = el("div", "hero"); if (pre) h.appendChild(pre); h.appendChild(el("span", "big " + (cls || ""), big)); if (small) h.appendChild(el("span", "sm", small)); c.appendChild(h); return h; }
+function tiles(c, items) {
+  const t = el("div", "tiles");
+  items.forEach(([label, value, unit, cls]) => { const d = el("div", "tile"); d.appendChild(el("div", "l", label));
+    const v = el("div", "v " + (value == null ? "bad" : (cls || ""))); v.textContent = value == null ? "??" : value; if (unit && value != null) v.appendChild(el("small", null, " " + unit)); d.appendChild(v); t.appendChild(d); });
+  c.appendChild(t); return t;
+}
+function kv(c, pairs, two) {
+  const g = el("div", "kv" + (two ? " two" : ""));
+  pairs.forEach(([k, v, cls]) => { if (v === undefined) return; g.appendChild(el("span", "k", k));
+    const missing = v === null || v === ""; g.appendChild(el("span", "v " + (missing ? "bad" : (cls || "")), missing ? "??" : v)); });
+  c.appendChild(g); return g;
+}
+function bar(c, frac) { const b = el("div", "bar" + (frac > .9 ? " bad" : frac > .75 ? " ok" : "")), i = el("i"); i.style.width = Math.max(0, Math.min(100, frac * 100)).toFixed(1) + "%"; b.appendChild(i); c.appendChild(b); }
+function chip(text, bold, cls) { const c = el("span", "chip " + (cls || "")); if (text) c.appendChild(document.createTextNode(text + " ")); if (bold != null) c.appendChild(el("b", null, bold)); return c; }
+
+// ---------- line chart (inline SVG) ----------
+const pendingCharts = [];
+function lineChart(points, series, o) {
+  // reuse the drawn chart until new history arrives: no flicker, hover survives refreshes
+  const key = o.id ? o.id + "|" + range + "|" + getTheme() : null;
+  if (key) { const c = chartCache.get(key); if (c && c.hist === hist) return c.el; }
+  const wrap = el("div", "chart");
+  pendingCharts.push(() => buildChart(wrap, points, series, o));
+  if (key) chartCache.set(key, {hist, el: wrap});
+  return wrap;
+}
+function buildCharts() { pendingCharts.splice(0).forEach(f => f()); }
+function buildChart(wrap, points, series, o) {
+  const W = Math.max(260, wrap.clientWidth || 600), H = o.h || 150, L = 38, R = 8, T = 8, B = 20;
+  const now = Date.now() / 1000, t0 = now - range;
+  const vals = []; series.forEach(s => points.forEach(p => { if (p[s.key] != null) vals.push(p[s.key]); }));
+  let lo = o.min, hi = o.max;
+  if (vals.length) { lo = Math.min(lo, Math.floor(Math.min(...vals) - 2)); hi = Math.max(hi, Math.ceil(Math.max(...vals) + 2)); }
+  const X = t => L + (t - t0) / range * (W - L - R), Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const s = sv("svg", {viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img"});
+  (o.zones || []).forEach(z => { const a = Math.min(hi, z[1]), b = Math.max(lo, z[0]); if (a > b) s.appendChild(sv("rect", {x: L, y: Y(a), width: W - L - R, height: Y(b) - Y(a), class: "z-" + z[2]})); });
+  const g = sv("g", {class: "grid"});
+  for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4, y = Y(v); g.appendChild(sv("line", {x1: L, x2: W - R, y1: y, y2: y}));
+    const tx = sv("text", {x: L - 5, y: y + 3, "text-anchor": "end", class: "ax"}); tx.textContent = Math.round(v); s.appendChild(tx); }
+  for (let i = 0; i <= 4; i++) { const t = t0 + range * i / 4, tx = sv("text", {x: X(t), y: H - 5, "text-anchor": i === 0 ? "start" : i === 4 ? "end" : "middle", class: "ax"});
+    tx.textContent = i === 4 ? "now" : new Date(t * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); s.appendChild(tx); }
+  s.insertBefore(g, s.firstChild);
+  const gap = (hist ? hist.step : 30) * 2.5;
+  series.forEach(se => {
+    let d = "", prev = null;
+    points.forEach(p => { const v = p[se.key]; if (v == null) { prev = null; return; } d += (prev === null || p.t - prev > gap ? "M" : "L") + X(p.t).toFixed(1) + "," + Y(v).toFixed(1); prev = p.t; });
+    if (d) s.appendChild(sv("path", {d, stroke: cssVar(se.color)}));
+  });
+  const cur = sv("line", {class: "cur", y1: T, y2: H - B, x1: L, x2: L, visibility: "hidden"}); s.appendChild(cur);
+  wrap.appendChild(s);
+  const tip = el("div", "tip"); wrap.appendChild(tip);
+  s.addEventListener("mousemove", ev => {
+    const r = s.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width * W, t = t0 + (x - L) / (W - L - R) * range;
+    let best = null; points.forEach(p => { if (!best || Math.abs(p.t - t) < Math.abs(best.t - t)) best = p; });
+    if (!best) return;
+    cur.setAttribute("x1", X(best.t)); cur.setAttribute("x2", X(best.t)); cur.setAttribute("visibility", "visible");
+    tip.textContent = new Date(best.t * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + "  " + series.map(se => se.label + " " + (best[se.key] == null ? "—" : best[se.key] + (se.unit || ""))).join(" · ") + (best.band ? "  · " + best.band : "");
+    tip.style.display = "block"; const px = (ev.clientX - r.left); tip.style.left = Math.min(px + 10, r.width - tip.offsetWidth) + "px";
+  });
+  s.addEventListener("mouseleave", () => { tip.style.display = "none"; cur.setAttribute("visibility", "hidden"); });
+  if (series.length > 1 || o.legend) { const lg = el("div", "legend"); series.forEach(se => { const sp = el("span"); const i = el("i"); i.style.background = cssVar(se.color); sp.appendChild(i); sp.appendChild(document.createTextNode(se.label)); lg.appendChild(sp); }); wrap.appendChild(lg); }
+}
+function rangeButtons() {
+  const w = el("span");
+  [[3600, "1h"], [6 * 3600, "6h"], [24 * 3600, "24h"]].forEach(([r, l]) => { const b = el("button", "seg" + (r === range ? " on" : ""), l);
+    b.onclick = () => { range = r; try { localStorage.setItem("dongie-range", r); } catch (_) {} loadHistory(true); }; w.appendChild(b); });
+  return w;
+}
+function noData(c, txt) { c.appendChild(el("div", "empty-note", txt || "Collecting data… (one point every 10 s, kept 24 h in RAM)")); }
+
+// ---------- header ----------
+function renderHeader() {
+  const s = status, l = s.lte, lvl = sigLevel(l), tech = l.tech ? (l.tech === "lte" ? "4G" : "3G") : null;
+  $("title").textContent = s.system.hostname || "dongie";
+  $("subtitle").textContent = (s.system.model || "") + " · " + new Date(s.updated * 1000).toLocaleTimeString();
+  const ch = $("chips"); ch.textContent = "";
+  const c1 = chip("", null, l.state === "connected" ? "good" : l.state ? "ok" : "bad");
+  c1.appendChild(sigBars(lvl)); c1.appendChild(el("b", null, (tech || "no network") + (l.band_label ? " · " + l.band_label.replace("LTE ", "") : "") + (l.operator_name ? " · " + l.operator_name : ""))); ch.appendChild(c1);
+  ch.appendChild(chip("Tailscale", s.tailscale.state || "?", stateCls(s.tailscale.state)));
+  const wm = (s.wifi || {}).mode;
+  ch.appendChild(chip("Wi-Fi", wm === "client" ? "→ " + ((s.wifi.station || {}).ssid || "client") : wm === "hotspot" ? s.hotspot.client_count + " client" + (s.hotspot.client_count === 1 ? "" : "s") : "off", wm === "off" ? "ok" : ""));
+  const tmax = Math.max(...s.system.temps.map(t => t[1]), 0);
+  if (s.system.temps.length) ch.appendChild(chip("🌡", tmax.toFixed(0) + " °C", tmax < 60 ? "" : tmax < 75 ? "ok" : "bad"));
+}
+
+// ---------- tabs ----------
+function renderTab() {
+  if (!status) return;
+  renderHeader();
+  pendingCharts.length = 0;
+  // don't wipe forms while typing or while a Wi-Fi/WireGuard action runs
+  if (tab === "network" && (wf.busy || focusedInput())) { return; }
+  // keep the page height while rebuilding so the scroll position doesn't jump
+  const g = document.querySelector("#tab-" + tab + " .grid");
+  if (g) g.style.minHeight = g.offsetHeight + "px";
+  ({home: renderHome, mobile: renderMobile, network: renderNetwork, system: renderSystem, messages: renderSms})[tab]();
+  buildCharts();
+  if (g) requestAnimationFrame(() => { g.style.minHeight = ""; });
+  $("foot").textContent = "dongie " + (me.version || "") + " · " + (me.role === "admin" ? "admin view" : "guest view — log in for SMS and actions") + " · Catppuccin " + (document.documentElement.getAttribute("data-theme") || "auto") + (REDACT ? " · 🙈 redacted" : "");
+}
+
+function signalTiles(c, l) {
+  if (l.rsrp != null || l.rsrq != null) tiles(c, [["RSRP", l.rsrp, "dBm", rate(l.rsrp, -90, -105)], ["RSRQ", l.rsrq, "dB", rate(l.rsrq, -10, -15)], ["SNR", l.snr, "dB", rate(l.snr, 10, 0)]]);
+  if (l.wcdma_rssi != null || l.wcdma_ecio != null) tiles(c, [["3G RSSI", l.wcdma_rssi, "dBm", rate(l.wcdma_rssi, -75, -95)], ["Ec/Io", l.wcdma_ecio, "dB", rate(l.wcdma_ecio, -6, -12)]]);
+  if (l.rsrp == null && l.rsrq == null && l.wcdma_rssi == null && l.wcdma_ecio == null) tiles(c, [["Signal", null]]);
+}
+
+function renderHome() {
+  const s = status, g = $("homeGrid"), admin = me.role === "admin"; g.textContent = "";
+  const l = s.lte, lvl = sigLevel(l);
+  // mobile
+  const c1 = card("Mobile", "📡", "blue", pill(l.state || "no modem", stateCls(l.state)));
+  hero(c1, techName(l.tech) || "—", [l.operator_name, l.registration].filter(Boolean).join(" · "), l.tech === "lte" ? "good" : l.tech ? "ok" : "bad", sigBars(lvl));
+  signalTiles(c1, l);
+  const ln = el("div", "line"); ln.appendChild(el("span", null, (l.band_label || "?") + " · ch " + (l.channel || "?"))); ln.appendChild(el("b", null, l.ip || "no IP")); c1.appendChild(ln);
+  c1.style.cursor = "pointer"; c1.onclick = () => go("mobile"); g.appendChild(c1);
+  // data
+  const u = s.usage, c2 = card("Data", "📊", "teal", u.available ? null : pill("unavailable", "bad"));
+  hero(c2, bytes(u.month_rx + u.month_tx), "this month");
+  tiles(c2, [["Today", bytes(u.today_rx + u.today_tx)], ["Session", bytes(u.session_rx + u.session_tx)]]);
+  c2.appendChild(usageBars(u, false)); c2.style.cursor = "pointer"; c2.onclick = () => go("network"); g.appendChild(c2);
+  // hotspot
+  const hs = s.hotspot, ts = s.tailscale;
+  const w = s.wifi || {mode: "off"};
+  const c3 = card("Wi-Fi", "📶", "peach", pill(w.mode, w.mode === "off" ? "" : "good"));
+  if (w.mode === "client" && w.station) {
+    const st = w.station; hero(c3, st.ssid || "—", "client · " + (st.ip || "no IP"));
+    tiles(c3, [["Signal", st.signal_dbm, "dBm", rate(st.signal_dbm, -60, -75)], ["Channel", chFromFreq(st.freq_mhz)], ["RX", st.rx_bitrate ? st.rx_bitrate.split(" ")[0] : null, "Mbit/s"]]);
+  } else {
+    hero(c3, hs.ssid || w.hotspot_ssid || "—", hs.active ? "hotspot · " + hs.client_count + " client" + (hs.client_count === 1 ? "" : "s") : "off");
+    if (hs.active) tiles(c3, [["Band", hs.band], ["Channel", (hs.channel || "").split(" ")[0] || null], ["TX", (hs.txpower || "").replace(".00", "") || null]]);
+  }
+  c3.style.cursor = "pointer"; c3.onclick = () => go("network"); g.appendChild(c3);
+  // tailscale
+  const c3b = card("Tailscale", "🔒", "lavender", pill(ts.state || "??", stateCls(ts.state)));
+  hero(c3b, ts.ip || "—", ts.hostname || "");
+  tiles(c3b, [["Peers online", ts.peers_online + " / " + ts.peers_total], ["Health", ts.health && ts.health.length ? ts.health.length + " ⚠" : "ok", null, ts.health && ts.health.length ? "ok" : "good"]]);
+  c3b.style.cursor = "pointer"; c3b.onclick = () => go("network"); g.appendChild(c3b);
+  // system
+  const sy = s.system, used = sy.mem_total_kb - sy.mem_available_kb, tmax = Math.max(...sy.temps.map(t => t[1]), 0);
+  const pct = (a, b) => b > 0 ? Math.round(a / b * 100) : null, pcls = f => f > 90 ? "bad" : f > 75 ? "ok" : "";
+  const ramP = pct(used, sy.mem_total_kb), zP = pct(sy.swap_used_kb, sy.swap_total_kb), dP = pct(sy.disk_used, sy.disk_total);
+  const c4 = card("System", "🖥", "green", pill("up " + dur(sy.uptime_secs)));
+  tiles(c4, [["Load", sy.load[0].toFixed(2)], ["Temp", tmax.toFixed(0), "°C", tmax < 60 ? "good" : tmax < 75 ? "ok" : "bad"]]);
+  tiles(c4, [["RAM", ramP, "%", pcls(ramP)], ["zram", zP, "%", pcls(zP)], ["Disk", dP, "%", pcls(dP)]]);
+  kv(c4, [["RAM", bytes(used * 1024) + " / " + bytes(sy.mem_total_kb * 1024)], ["zram", bytes(sy.swap_used_kb * 1024) + " / " + bytes(sy.swap_total_kb * 1024)], ["Disk /", bytes(sy.disk_total - sy.disk_used) + " free of " + bytes(sy.disk_total)]]);
+  const down = s.services.filter(x => x.state !== "active");
+  const ln4 = el("div", "line"); ln4.appendChild(el("span", null, "Services")); ln4.appendChild(el("b", down.length ? "bad" : "good", down.length ? down.length + " not active: " + down.map(x => x.name).join(", ") : "all " + s.services.length + " active")); c4.appendChild(ln4);
+  c4.style.cursor = "pointer"; c4.onclick = () => go("system"); g.appendChild(c4);
+  // messages
+  if (admin && me.sms_available) {
+    const unread = msgs.filter(m => m.dir === "in" && !m.read), c5 = card("Messages", "💬", "mauve", unread.length ? pill(unread.length + " unread", "good") : null);
+    if (msgs.length) { const last = msgs[0]; hero(c5, last.number, new Date(last.timestamp).toLocaleString()); c5.appendChild(el("div", "mut", (last.dir === "out" ? "You: " : "") + last.text.slice(0, 120))); }
+    else c5.appendChild(el("div", "empty-note", "No messages in RAM"));
+    c5.style.cursor = "pointer"; c5.onclick = () => go("messages"); g.appendChild(c5);
+  }
+}
+
+function usageBars(u, big) {
+  const h = el("div", "hist" + (big ? " big" : "")), hs = u.history || [], mx = Math.max(1, ...hs.map(x => x[1] + x[2]));
+  for (let k = 0; k < 31 - hs.length; k++) h.appendChild(el("i", "blank"));
+  hs.forEach(x => { const i = el("i"); i.style.height = Math.max(4, (x[1] + x[2]) / mx * 100) + "%"; i.title = x[0] + ": ↓ " + bytes(x[1]) + " ↑ " + bytes(x[2]); h.appendChild(i); });
+  return h;
+}
+
+function renderMobile() {
+  const s = status, l = s.lte, g = $("mobileGrid"), admin = me.role === "admin"; g.textContent = "";
+  // now
+  const c1 = card("Connection", "📡", "blue", pill(l.state || "no modem", stateCls(l.state)));
+  hero(c1, techName(l.tech) || "—", (l.band_label || "") + (l.channel ? " · ch " + l.channel : ""), l.tech === "lte" ? "good" : l.tech ? "ok" : "bad", sigBars(sigLevel(l)));
+  signalTiles(c1, l);
+  kv(c1, [["Operator", l.operator_name ? l.operator_name + " (" + (l.operator_code || "?") + ")" : null], ["SIM", (l.sim_operator || "?") + " (" + (l.sim_operator_code || "?") + ")"],
+    ["Registration", l.registration, stateCls(l.registration === "home" ? "active" : l.registration)], ["Roaming", l.roaming],
+    ["CS / PS", (l.cs_attached || "?") + " / " + (l.ps_attached || "?"), l.ps_attached === "attached" ? "good" : "ok"], ["IP", l.ip], ["APN", l.apn], ["Modes", l.modes],
+    l.failed_reason ? ["Failed", l.failed_reason, "bad"] : ["", undefined]], true);
+  if (admin) { const a = el("div", "actions"); a.appendChild(actBtn("↻ Reconnect LTE", "lte-reconnect", "Reconnect LTE? This briefly drops the mobile connection (and Tailscale over it).")); c1.appendChild(a); }
+  g.appendChild(c1);
+  if (s.ims) g.appendChild(imsCard(s.ims, admin));
+
+  // cells
+  const cl = l.cells || {cells: [], freqs: []};
+  const c2 = card("Cells", "🗼", "sapphire", pill(cl.idle == null ? "?" : cl.idle ? "idle" : "connected"));
+  if (cl.cells.length) {
+    const tw = el("div", "tscroll"), t = el("table"), hr = el("tr");
+    ["", "Type", "Band", "Ch", "PCI/PSC", "RSRP/RSCP", "RSRQ/EcNo"].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+    cl.cells.slice().sort((a, b) => (b.serving - a.serving) || ((b.rsrp ?? b.rscp ?? -999) - (a.rsrp ?? a.rscp ?? -999))).forEach(x => {
+      const r = el("tr", x.serving ? "serving" : ""), p = x.rsrp ?? x.rscp, q = x.rsrq ?? x.ecno;
+      r.appendChild(el("td", null, x.serving ? "★" : ""));
+      r.appendChild(el("td", null, {"lte-intra": "LTE", "lte-inter": "LTE·inter", wcdma: "3G", gsm: "2G"}[x.kind] || x.kind));
+      r.appendChild(el("td", null, x.band || "?")); r.appendChild(el("td", null, x.channel ?? "?")); r.appendChild(el("td", null, x.id ?? "?"));
+      r.appendChild(el("td", p == null ? "bad" : rate(p, -90, -105), p == null ? "??" : p + " dBm"));
+      r.appendChild(el("td", q == null ? "" : rate(q, -10, -15), q == null ? "—" : q + " dB")); t.appendChild(r); });
+    tw.appendChild(t); c2.appendChild(tw);
+  } else noData(c2, "No cell measurements right now");
+  if (cl.freqs.length) {
+    c2.appendChild(el("div", "line", "Watched frequencies (from the network)"));
+    const ps = el("div", "pills"); cl.freqs.forEach(f => ps.appendChild(pill((f.band || f.kind) + " · " + (f.channel ?? "?") + (f.priority ? " · prio " + f.priority : "")))); c2.appendChild(ps);
+  }
+  if (admin) {
+    const ta = l.timing_advance_us;
+    kv(c2, [["Global cell ID", l.cells.global_cell_id || l.cell_id], ["TAC", l.cells.tac || l.tac], ["PLMN", l.cells.plmn],
+      ["Timing advance", ta == null ? null : ta + " µs ≈ " + Math.round(ta * 150) + " m to the tower (rough)"]]);
+  }
+  c2.appendChild(el("div", "mut small", "★ = serving cell. Neighbours are measured by the modem; when connected it often reports only the same frequency."));
+  g.appendChild(c2);
+
+  // signal history
+  const c3 = card("Signal history", "📈", "blue", rangeButtons(), "full");
+  if (hist && hist.points.length) {
+    const P = hist.points, lte = P.some(p => p.rsrp != null), w = P.some(p => p.w_rssi != null || p.w_ecio != null);
+    if (lte) {
+      c3.appendChild(el("div", "mut small", "LTE RSRP (dBm)"));
+      c3.appendChild(lineChart(P, [{key: "rsrp", label: "RSRP", color: "blue", unit: " dBm"}], {id: "rsrp", min: -120, max: -80, zones: [[-200, -105, "bad"], [-105, -90, "ok"], [-90, 0, "good"]], h: 140}));
+      c3.appendChild(el("div", "mut small", "LTE RSRQ / SNR (dB)"));
+      c3.appendChild(lineChart(P, [{key: "rsrq", label: "RSRQ", color: "teal", unit: " dB"}, {key: "snr", label: "SNR", color: "peach", unit: " dB"}], {id: "rsrq", min: -20, max: 10, zones: [[-100, -15, "bad"], [-15, -10, "ok"]], h: 130}));
+    }
+    if (w) {
+      c3.appendChild(el("div", "mut small", "3G RSSI (dBm) / Ec/Io (dB)"));
+      c3.appendChild(lineChart(P, [{key: "w_rssi", label: "RSSI", color: "mauve", unit: " dBm"}, {key: "w_ecio", label: "Ec/Io", color: "pink", unit: " dB"}], {id: "wcdma", min: -110, max: 0, h: 130}));
+    }
+    c3.appendChild(el("div", "mut small", "Band over time"));
+    const st = el("div", "strip"), t0s = Date.now() / 1000 - range; P.forEach(p => { const i = el("i"); i.style.left = Math.max(0, (p.t - t0s) / range * 100) + "%"; i.style.width = (hist.step / range * 100 + 0.05) + "%"; i.style.background = bandColor(p.band || (p.tech ? "unknown band" : "no network")); i.title = new Date(p.t * 1000).toLocaleTimeString() + " · " + (p.band || "no network"); st.appendChild(i); }); c3.appendChild(st);
+  } else noData(c3);
+  g.appendChild(c3);
+
+  // band histogram
+  const c4 = card("Bands", "🎚", "teal", hist ? pill(hist.switches + " switch" + (hist.switches === 1 ? "" : "es")) : null);
+  if (hist && hist.bands.length) {
+    const tot = hist.bands.reduce((a, b) => a + b[1], 0) || 1;
+    hist.bands.forEach(([b, secs]) => { const r = el("div", "hbar"); r.appendChild(el("span", null, b)); const bb = el("div", "b"), i = el("i"); i.style.width = (secs / tot * 100) + "%"; i.style.background = bandColor(b); bb.appendChild(i); r.appendChild(bb);
+      r.appendChild(el("span", "p", Math.round(secs / tot * 100) + "% · " + dur(secs))); c4.appendChild(r); });
+    c4.appendChild(el("div", "mut small", "time per band in the selected range (" + (range / 3600) + " h)"));
+  } else noData(c4);
+  c4.appendChild(el("div", "line", "Modem supports"));
+  const ps = el("div", "pills"); (l.supported_bands || []).forEach(b => ps.appendChild(pill(b, b === l.band_label ? "good" : ""))); c4.appendChild(ps);
+  g.appendChild(c4);
+
+  // modem
+  const c5 = card(admin ? "Everything the modem reports" : "Modem, SIM & data connection", "🔧", "lavender", null, "full");
+  const groups = {}; (l.details || []).forEach(d => (groups[d.group] = groups[d.group] || []).push(d));
+  const fmt = d => { const n = +d.value; if (/bytes/.test(d.key) && !isNaN(n)) return bytes(n); if (/duration/.test(d.key) && !isNaN(n)) return dur(n);
+    if (/start date/.test(d.key) && !isNaN(n)) return new Date(n * 1000).toLocaleString(); return d.value; };
+  const gw = el("div", "dgroups");
+  ["SIM", "Data connection", "Modem"].forEach(gn => { if (!groups[gn]) return; const box = el("div"); box.appendChild(el("div", "dg-title", gn));
+    detailKv(box, groups[gn], fmt); gw.appendChild(box); });
+  if (!Object.keys(groups).length) noData(c5, "No details from ModemManager");
+  c5.appendChild(gw);
+  c5.appendChild(el("div", "mut small", admin ? "🔒 = only visible to admins. Raw from ModemManager (modem, SIM, data bearer)." : "Log in to see IMEI, IMSI, ICCID, phone number, device ID and cell IDs."));
+  g.appendChild(c5);
+}
+
+function detailKv(box, list, fmt) {
+  const g = el("div", "kv");
+  list.forEach(d => {
+    const k = (d.sensitive ? "🔒 " : "") + d.key, v = fmt(d), multi = v.includes("\n");
+    if (multi || v.length > 24) {
+      const k2 = el("span", "k", k); k2.style.gridColumn = "1/-1"; g.appendChild(k2);
+      const w = el("div", "pills"); w.style.gridColumn = "1/-1"; w.style.marginBottom = "4px";
+      (multi ? v.split("\n") : [v]).forEach(x => w.appendChild(pill(x))); g.appendChild(w);
+    } else { g.appendChild(el("span", "k", k)); g.appendChild(el("span", "v", v)); }
+  });
+  box.appendChild(g);
+}
+
+function renderNetwork() {
+  const s = status, g = $("networkGrid"), admin = me.role === "admin", n = net; g.textContent = "";
+  const hs = s.hotspot, w = s.wifi || {mode: "off"};
+  // --- Wi-Fi
+  const c1 = card("Wi-Fi", "📶", "peach", pill(w.mode, w.mode === "off" ? "" : "good"));
+  if (w.mode === "client" && w.station) {
+    const st = w.station;
+    hero(c1, st.ssid || "—", "client mode · " + (st.ip || "no IP"));
+    tiles(c1, [["Signal", st.signal_dbm, "dBm", rate(st.signal_dbm, -60, -75)], ["Channel", chFromFreq(st.freq_mhz)], ["RX", st.rx_bitrate ? st.rx_bitrate.split(" ")[0] : null, "Mbit/s"], ["TX", st.tx_bitrate ? st.tx_bitrate.split(" ")[0] : null, "Mbit/s"]]);
+    kv(c1, [["Frequency", st.freq_mhz ? st.freq_mhz + " MHz" : null], ["IP", st.ip], ["BSSID", admin ? st.bssid : undefined], ["Connection", w.connection]]);
+  } else if (w.mode === "hotspot") {
+    hero(c1, hs.ssid || "—", "hotspot · " + hs.client_count + " client" + (hs.client_count === 1 ? "" : "s"));
+    tiles(c1, [["Band", hs.band], ["Channel", (hs.channel || "").split(" ")[0] || null], ["TX", (hs.txpower || "").replace(".00", "") || null], ["Address", (hs.address || "").split("/")[0] || null]]);
+    if (hs.clients && hs.clients.length) {
+      const tw = el("div", "tscroll"), t = el("table"), hr = el("tr"); ["Client", "IP", "Signal", "Data", "Time"].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+      hs.clients.forEach(cl => { const r = el("tr");
+        r.appendChild(el("td", null, cl.hostname || cl.mac)); r.appendChild(el("td", null, cl.ip || "—"));
+        r.appendChild(el("td", rate(cl.signal_dbm, -60, -75), cl.signal_dbm == null ? "??" : cl.signal_dbm + " dBm"));
+        r.appendChild(el("td", null, "↓" + bytes(cl.tx_bytes) + " ↑" + bytes(cl.rx_bytes))); r.appendChild(el("td", null, dur(cl.connected_secs))); t.appendChild(r); });
+      tw.appendChild(t); c1.appendChild(tw);
+    } else if (!admin && hs.client_count) c1.appendChild(el("div", "mut small", "Log in to see client details."));
+  } else hero(c1, "Wi-Fi off", "hotspot \"" + (w.hotspot_ssid || "?") + "\" is configured");
+  if (admin && w.mode !== "client") { const a = el("div", "actions"); a.appendChild(w.mode === "hotspot" ? actBtn("Turn hotspot off", "hotspot-off", "Turn the Wi-Fi hotspot off?") : actBtn("Turn hotspot on", "hotspot-on")); c1.appendChild(a); }
+  g.appendChild(c1);
+  if (admin) g.appendChild(wifiSettings(w));
+
+  // --- Tailscale
+  const ts = s.tailscale;
+  const c2 = card("Tailscale", "🔒", "lavender", pill(ts.state || "??", stateCls(ts.state)));
+  hero(c2, ts.ip || "—", ts.hostname || "");
+  tiles(c2, [["Peers online", ts.peers_online + " / " + ts.peers_total], ["Exit node", admin ? (n ? (n.exit_node || "none") : "…") : "—"], ["Accept routes", admin && n && n.accept_routes != null ? (n.accept_routes ? "on" : "off") : "—"]]);
+  if (ts.health && ts.health.length) {
+    const d = det("ts-health", "⚠ " + ts.health.length + " health warning" + (ts.health.length === 1 ? "" : "s"), "health");
+    ts.health.forEach(x => { const sh = x.split(/[:\n]/)[0].slice(0, 90), li = el("div", "hw", sh + (sh.length < x.length ? "…" : "")); li.title = x; d.appendChild(li); });
+    c2.appendChild(d);
+  }
+  if (admin && n) {
+    c2.appendChild(el("div", "mut small", "Exit node and subnet routes are shown read-only on purpose: switching them remotely can cut the stick off from the tailnet. Change them on the stick itself if ever needed."));
+    const pd = det("ts-peers", "Peers (" + n.peers.filter(p => p.online).length + " online of " + n.peers.length + ")", "health");
+    const tw = el("div", "tscroll"), t = el("table"), hr = el("tr"); ["", "Peer", "IP", "OS", "Path", "↓ / ↑"].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+    n.peers.forEach(p => { const r = el("tr"); const dt = el("td"); dt.appendChild(el("i", "dot " + (p.online ? "good" : ""))); r.appendChild(dt);
+      r.appendChild(el("td", null, p.name + (p.exit_node_option ? " ⇱" : ""))); r.appendChild(el("td", "mono", p.ip || "—")); r.appendChild(el("td", null, p.os || "—"));
+      r.appendChild(el("td", null, p.direct ? "direct" : p.relay ? "relay " + p.relay : "—")); r.appendChild(el("td", null, p.rx_bytes || p.tx_bytes ? bytes(p.rx_bytes) + " / " + bytes(p.tx_bytes) : "—")); t.appendChild(r); });
+    tw.appendChild(t); pd.appendChild(tw); pd.appendChild(el("div", "mut small", "⇱ = offers to be an exit node")); c2.appendChild(pd);
+  }
+  g.appendChild(c2);
+
+  // --- WireGuard
+  const wgs = n ? n.wireguard : [];
+  const c4 = card("WireGuard", "🛡", "green", n ? pill(wgs.length ? wgs.filter(x => x.active).length + " / " + wgs.length + " up" : "no tunnels") : null);
+  if (!n) noData(c4, "loading…");
+  else if (!wgs.length) c4.appendChild(el("div", "mut small", "No WireGuard tunnels yet." + (admin ? " Import a wg-quick config below." : "")));
+  wgs.forEach(x => {
+    const r = el("div", "netrow"), top = el("div", "top");
+    top.appendChild(el("b", null, x.name)); top.appendChild(pill(x.active ? "up" : "down", x.active ? "good" : "")); if (x.autoconnect) top.appendChild(pill("starts at boot"));
+    r.appendChild(top);
+    if (x.public_key) { const k = el("div", "line"); k.appendChild(el("span", null, "This stick's public key")); const kk = el("span", "mono", x.public_key); k.appendChild(kk);
+      if (admin && navigator.clipboard) { const cb = el("button", "ghost", "📋"); cb.title = "copy"; cb.onclick = () => navigator.clipboard.writeText(x.public_key); k.appendChild(cb); } r.appendChild(k); }
+    x.peers.forEach(p => { const hs2 = p.latest_handshake, stale = !hs2 || Date.now() / 1000 - hs2 > 180;
+      kv(r, [["Peer", p.public_key.slice(0, 12) + "…"], ["Endpoint", admin ? (p.endpoint || "—") : undefined], ["Allowed IPs", p.allowed_ips], ["Handshake", ago(hs2), x.active ? (stale ? "bad" : "good") : ""], ["Traffic", "↓ " + bytes(p.rx_bytes) + "  ↑ " + bytes(p.tx_bytes)]]); });
+    if (admin) { const a = el("div", "actions");
+      const ud = el("button", x.active ? "" : "pri", x.active ? "Stop" : "Start"); ud.disabled = wf.busy; ud.onclick = () => wifiCall("/api/wireguard/action", {name: x.name, action: x.active ? "down" : "up"}); a.appendChild(ud);
+      const ab = el("button", null, x.autoconnect ? "Don't start at boot" : "Start at boot"); ab.disabled = wf.busy; ab.onclick = () => wifiCall("/api/wireguard/action", {name: x.name, action: x.autoconnect ? "autoconnect-off" : "autoconnect-on"}); a.appendChild(ab);
+      const db = el("button", "danger", "Delete"); db.disabled = wf.busy; db.onclick = () => { if (confirm("Delete the WireGuard tunnel " + x.name + "? Its keys are gone afterwards.")) wifiCall("/api/wireguard/action", {name: x.name, action: "delete"}); }; a.appendChild(db);
+      r.appendChild(a); }
+    c4.appendChild(r);
+  });
+  if (admin) {
+    const d = det("wg-import", "＋ Import a tunnel (wg-quick .conf)", "health");
+    const f = el("div", "form"); f.style.maxWidth = "none";
+    f.appendChild(el("span", "mut", "Name")); f.appendChild(wifiInput("text", "wgname", "e.g. wg-home (a-z 0-9 - _)", {maxLength: 15}));
+    d.appendChild(f);
+    const ta = el("textarea", "cfg"); ta.placeholder = "[Interface]\nPrivateKey = …\nAddress = 10.0.0.2/32\n\n[Peer]\nPublicKey = …\nEndpoint = host:51820\nAllowedIPs = 10.0.0.0/24\nPersistentKeepalive = 25";
+    ta.value = wf.wgconf; ta.oninput = () => { wf.wgconf = ta.value; }; ta.spellcheck = false; d.appendChild(ta);
+    const chk = (key, text) => { const l = el("label", "chk"), i = el("input"); i.type = "checkbox"; i.checked = wf[key]; i.onchange = () => { wf[key] = i.checked; }; l.appendChild(i); l.appendChild(el("span", null, text)); return l; };
+    d.appendChild(chk("wgall", "Send ALL traffic through this tunnel (uses its AllowedIPs as default route). Off = only the networks in AllowedIPs."));
+    d.appendChild(chk("wgauto", "Start automatically at boot. Off = a reboot always brings the stick back without the tunnel."));
+    const a = el("div", "actions"), ib = el("button", "pri", "Import"); ib.disabled = wf.busy;
+    ib.onclick = () => {
+      if (wf.wgall && !confirm("Route ALL traffic through this tunnel? If the tunnel is broken, the stick's internet (not Tailscale's own path) goes through a dead end until you stop it.")) return;
+      wifiCall("/api/wireguard/import", {name: wf.wgname.trim(), config: wf.wgconf, route_all: wf.wgall, autoconnect: wf.wgauto}, () => { wf.wgconf = ""; wf.wgname = ""; });
+    };
+    a.appendChild(ib); d.appendChild(a);
+    d.appendChild(el("div", "mut small", "The config (including the private key) is sent once over Tailscale, imported into NetworkManager on the stick and not kept by dongie. The private key is never shown again."));
+    c4.appendChild(d);
+    if (wf.msg && !g.querySelector(".msgline")) c4.appendChild(el("div", "msgline " + wf.msgCls, wf.msg));
+  }
+  g.appendChild(c4);
+
+  // --- connectivity test (admin)
+  if (admin) {
+    const c5 = card("Connection test", "🩺", "sky");
+    const a = el("div", "actions"), b = el("button", "pri", wf.test === "running" ? "⏳ testing…" : "Run test"); b.disabled = wf.test === "running";
+    b.onclick = async () => { wf.test = "running"; renderNetwork(); try { const r = await api("/api/nettest", {method: "POST"}); wf.test = r.results; } catch (e) { wf.test = [{name: "test", ok: false, detail: e.message}]; } renderNetwork(); };
+    a.appendChild(b); c5.appendChild(a);
+    if (Array.isArray(wf.test)) {
+      const t = el("table"); wf.test.forEach(x => { const r = el("tr"), td = el("td"); td.appendChild(el("i", "dot " + (x.ok ? "good" : "bad"))); r.appendChild(td);
+        r.appendChild(el("td", null, x.name)); r.appendChild(el("td", x.ok ? "" : "bad", x.detail)); r.appendChild(el("td", null, x.ms != null ? Math.round(x.ms) + " ms" : "")); t.appendChild(r); });
+      const tw = el("div", "tscroll"); tw.appendChild(t); c5.appendChild(tw);
+    } else c5.appendChild(el("div", "mut small", "Pings 1.1.1.1 and 8.8.8.8, resolves a name and opens a TLS port — uses a few KB of mobile data."));
+    g.appendChild(c5);
+  }
+
+  // --- interfaces
+  const c6 = card("Interfaces", "🔌", "sapphire");
+  if (!n) noData(c6, "loading…"); else {
+    const tw = el("div", "tscroll"), t = el("table"), hr = el("tr"); ["Interface", "State", "Address", "↓ / ↑"].concat(admin ? ["MAC"] : []).forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+    n.interfaces.forEach(i => { const r = el("tr"); r.appendChild(el("td", null, i.name));
+      const st = el("td"); st.appendChild(pill(i.state.toLowerCase(), i.state === "UP" || i.state === "UNKNOWN" && i.addrs.length ? "good" : "")); r.appendChild(st);
+      r.appendChild(el("td", "mono", i.addrs.join(", ") || "—"));
+      r.appendChild(el("td", null, i.counters_broken ? "n/a*" : bytes(i.rx_bytes) + " / " + bytes(i.tx_bytes)));
+      if (admin) r.appendChild(el("td", "mono", i.mac || "—")); t.appendChild(r); });
+    tw.appendChild(t); c6.appendChild(tw);
+    c6.appendChild(el("div", "mut small", "* the modem driver doesn't count traffic on wwan0 — see Data usage (modem counters) instead."));
+  }
+  g.appendChild(c6);
+
+  // --- routes + DNS
+  const c7 = card("Routes & DNS", "🧭", "teal");
+  if (!n) noData(c7, "loading…"); else {
+    const t = el("table"), hr = el("tr"); ["Destination", "Via", "Interface", "Metric"].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+    n.routes.forEach(r0 => { const r = el("tr"); r.appendChild(el("td", r0.dst === "default" ? "good" : "", r0.dst)); r.appendChild(el("td", "mono", r0.gateway || "—")); r.appendChild(el("td", null, r0.dev || "—")); r.appendChild(el("td", null, r0.metric ?? "")); t.appendChild(r); });
+    const tw = el("div", "tscroll"); tw.appendChild(t); c7.appendChild(tw);
+    c7.appendChild(el("div", "line", "DNS servers in use"));
+    const ps = el("div", "pills"); n.dns.forEach(d => ps.appendChild(pill(d + (d === "100.100.100.100" ? " (Tailscale MagicDNS)" : "")))); c7.appendChild(ps);
+  }
+  g.appendChild(c7);
+
+  // --- data usage
+  const u = s.usage;
+  const c3 = card("Data usage", "📊", "teal", pill(u.available ? "modem counters" : "unavailable", u.available ? "" : "bad"), "full");
+  tiles(c3, [["Today ↓", bytes(u.today_rx)], ["Today ↑", bytes(u.today_tx)], ["Month ↓", bytes(u.month_rx)], ["Month ↑", bytes(u.month_tx)], ["Session ↓", bytes(u.session_rx)], ["Session ↑", bytes(u.session_tx)]]);
+  c3.appendChild(usageBars(u, true));
+  c3.appendChild(el("div", "mut small", "last 31 days (UTC) · counting since " + (u.since || "—") + " · hover a bar for details"));
+  g.appendChild(c3);
+}
+
+function wifiInput(type, key, placeholder, attrs) {
+  const i = el("input"); i.type = type; i.placeholder = placeholder || ""; i.value = wf[key] ?? ""; i.autocomplete = type === "password" ? "new-password" : "off";
+  Object.assign(i, attrs || {}); i.oninput = () => { wf[key] = i.value; }; return i;
+}
+async function wifiCall(path, body, okRender) {
+  wf.busy = true; wf.msg = "⏳ working… (network changes can take up to a minute)"; wf.msgCls = "mut"; renderNetwork();
+  try { const r = await api(path, body ? {method: "POST", json: body} : {}); wf.msg = "✓ " + (r.message || "done"); wf.msgCls = "good"; if (okRender) okRender(r); }
+  catch (e) { wf.msg = "✗ " + e.message; wf.msgCls = "bad"; }
+  finally { wf.busy = false; netAt = 0; await refresh(true); await loadNet(true); renderNetwork(); }
+}
+function wifiSettings(w) {
+  const c = card("Wi-Fi settings", "🛠", "peach", w.mode === "hotspot" ? pill("hotspot active") : w.mode === "client" ? pill("client active") : null);
+  if (wf.ssid === null) wf.ssid = w.hotspot_ssid || "";
+  if (wf.channel === null) wf.channel = w.hotspot_channel || "0";
+  const savedSsids = new Set((w.saved || []).filter(x => x.mode !== "ap").map(x => x.ssid));
+
+  c.appendChild(el("div", "sub-h", "Hotspot"));
+  const f = el("div", "form");
+  f.appendChild(el("span", "mut", "SSID")); f.appendChild(wifiInput("text", "ssid", "network name", {maxLength: 32}));
+  f.appendChild(el("span", "mut", "Password")); f.appendChild(wifiInput("password", "pw", "leave empty to keep the current one", {maxLength: 63}));
+  f.appendChild(el("span", "mut", "Channel"));
+  const sel = el("select"); ["0", ...Array.from({length: 13}, (_, i) => String(i + 1))].forEach(v => { const o = el("option", null, v === "0" ? "auto" : v); o.value = v; if (v === String(wf.channel)) o.selected = true; sel.appendChild(o); });
+  sel.onchange = () => { wf.channel = sel.value; }; f.appendChild(sel);
+  c.appendChild(f);
+  const a1 = el("div", "actions"), save = el("button", "pri", "Save hotspot");
+  save.disabled = wf.busy;
+  save.onclick = () => {
+    if (wf.pw && (wf.pw.length < 8 || wf.pw.length > 63)) { wf.msg = "✗ password must be 8-63 characters"; wf.msgCls = "bad"; renderNetwork(); return; }
+    if (w.mode === "hotspot" && !confirm("Apply now? The hotspot restarts and connected devices drop for a few seconds.")) return;
+    const body = {ssid: wf.ssid, channel: +wf.channel}; if (wf.pw) body.password = wf.pw;
+    wifiCall("/api/wifi/hotspot", body, () => { wf.pw = ""; });
+  };
+  a1.appendChild(save);
+  if (w.mode !== "hotspot") { const b = el("button", null, "Switch to hotspot"); b.disabled = wf.busy; b.onclick = () => wifiCall("/api/wifi/activate", {name: (w.saved.find(x => x.mode === "ap") || {}).name || "hotspot"}); a1.appendChild(b); }
+  c.appendChild(a1);
+
+  c.appendChild(el("div", "sub-h", "Saved networks"));
+  const clients = (w.saved || []).filter(x => x.mode !== "ap");
+  if (!clients.length) c.appendChild(el("div", "mut small", "No client networks saved yet."));
+  else {
+    const t = el("table"), hr = el("tr"); ["Network", "Priority", ""].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+    clients.forEach(n => { const r = el("tr"); r.appendChild(el("td", null, (n.ssid || n.name) + (n.active ? "  · connected" : "")));
+      r.appendChild(el("td", null, n.priority > 100 ? n.priority + " (preferred)" : String(n.priority)));
+      const td = el("td"); td.style.textAlign = "right";
+      if (!n.active) { const u = el("button", null, "Connect"); u.disabled = wf.busy; u.onclick = () => { if (w.mode === "hotspot" && !confirm("Connect to " + (n.ssid || n.name) + "? The hotspot turns off (one radio, one mode). If it fails, the hotspot comes back.")) return; wifiCall("/api/wifi/activate", {name: n.name}); }; td.appendChild(u); }
+      const fb = el("button", "danger", "Forget"); fb.style.marginLeft = "6px"; fb.disabled = wf.busy; fb.onclick = () => { if (confirm("Forget " + (n.ssid || n.name) + "?")) wifiCall("/api/wifi/forget", {name: n.name}); }; td.appendChild(fb);
+      r.appendChild(td); t.appendChild(r); });
+    c.appendChild(t);
+  }
+
+  c.appendChild(el("div", "sub-h", "Scan & join"));
+  const sa = el("div", "actions"), scan = el("button", "pri", w.mode === "hotspot" ? "🔍 Scan (pauses hotspot ~15 s)" : "🔍 Scan");
+  scan.disabled = wf.busy;
+  scan.onclick = () => {
+    if (w.mode === "hotspot" && !confirm("This chip can't scan while it's a hotspot. Pause the hotspot for ~15 s to scan? Connected devices drop briefly; it comes back automatically.")) return;
+    wifiCall("/api/wifi/scan", {pause_hotspot: w.mode === "hotspot"}, r => { wf.scan = r; wf.scan.at = Date.now(); });
+  };
+  sa.appendChild(scan); c.appendChild(sa);
+  if (wf.scan && wf.scan.networks) {
+    const sc = wf.scan, nets = sc.networks.filter(x => x.ssid !== (w.hotspot_ssid || ""));
+    c.appendChild(el("div", "mut small", nets.length + " network" + (nets.length === 1 ? "" : "s") + " · scanned " + ago(sc.at / 1000) + " in " + (sc.took_ms / 1000).toFixed(1) + " s" + (sc.hotspot_paused ? " (hotspot was paused)" : "")));
+    const sl = el("div", "scanlist");
+    nets.forEach(x => { const d = el("div", "scanrow"); d.appendChild(pctBars(x.signal || 0));
+      const mid = el("div"); const nm = el("div"); nm.appendChild(el("b", null, x.ssid)); if (x.in_use) nm.appendChild(pill("connected", "good")); if (savedSsids.has(x.ssid)) nm.appendChild(pill("saved")); mid.appendChild(nm);
+      mid.appendChild(el("div", "meta", (x.signal ?? "?") + "% · ch " + (x.channel ?? "?") + " · " + (x.freq_mhz >= 5000 ? "5 GHz" : "2.4 GHz") + (x.ap_count > 1 ? " · " + x.ap_count + " APs" : ""))); d.appendChild(mid);
+      d.appendChild(el("span", "meta", x.security ? "🔒 " + x.security : "🔓 open"));
+      d.onclick = () => { wf.jssid = x.ssid; wf.jpw = ""; renderNetwork(); const pw = c.querySelector('input[type=password][placeholder^="empty"]'); if (pw) pw.focus(); };
+      sl.appendChild(d); });
+    if (!nets.length) sl.appendChild(el("span", "mut small", "No other networks found."));
+    c.appendChild(sl);
+    // channel usage -> hotspot channel suggestion
+    const cu = sc.channels || [], mx = Math.max(1, ...cu.map(x => x[1]));
+    const myCh = w.mode === "hotspot" ? +((status.hotspot.channel || "").split(" ")[0]) : 0;
+    const bars = el("div", "chbars");
+    cu.forEach(([ch, cnt]) => { const d = el("div", ch === myCh ? "me" : ""); const i = el("i"); i.style.height = (cnt / mx * 80) + "%"; d.title = "channel " + ch + ": " + cnt + " AP" + (cnt === 1 ? "" : "s"); d.appendChild(i); d.appendChild(el("span", null, ch)); bars.appendChild(d); });
+    c.appendChild(el("div", "line", "Channel usage (2.4 GHz)" + (myCh ? " — purple = hotspot" : "")));
+    c.appendChild(bars);
+    const score = k => cu.filter(x => Math.abs(x[0] - k) <= 2).reduce((a, x) => a + x[1] * (x[0] === k ? 2 : 1), 0);
+    const best = [1, 6, 11].sort((a, b) => score(a) - score(b))[0];
+    if (cu.some(x => x[1])) { const r = el("div", "actions"); r.appendChild(el("span", "mut small", "Least crowded of 1 / 6 / 11: channel " + best));
+      const ub = el("button", null, "Use " + best + " for the hotspot"); ub.onclick = () => { wf.channel = String(best); renderNetwork(); }; r.appendChild(ub); c.appendChild(r); }
+  } else c.appendChild(el("div", "mut small", "This chip can't scan while it's a hotspot, so in hotspot mode the scan pauses it for a moment."));
+
+  const f2 = el("div", "form"); f2.style.marginTop = "10px";
+  f2.appendChild(el("span", "mut", "SSID")); f2.appendChild(wifiInput("text", "jssid", "network name (or pick one above)", {maxLength: 32}));
+  f2.appendChild(el("span", "mut", "Password")); f2.appendChild(wifiInput("password", "jpw", "empty for open networks", {maxLength: 63}));
+  c.appendChild(f2);
+  const a2 = el("div", "actions"), join = el("button", "pri", "Join");
+  join.disabled = wf.busy;
+  join.onclick = () => {
+    if (!wf.jssid) { wf.msg = "✗ SSID needed"; wf.msgCls = "bad"; renderNetwork(); return; }
+    if (!confirm("Join \"" + wf.jssid + "\"? " + (w.mode === "hotspot" ? "The hotspot turns off while connected. " : "") + "If it fails, the hotspot comes back. This network becomes preferred at boot.")) return;
+    const body = {ssid: wf.jssid}; if (wf.jpw) body.password = wf.jpw;
+    wifiCall("/api/wifi/connect", body, () => { wf.jpw = ""; });
+  };
+  a2.appendChild(join); c.appendChild(a2);
+  c.appendChild(el("div", "msgline " + wf.msgCls, wf.msg));
+  return c;
+}
+
+function renderSystem() {
+  const s = status, sy = s.system, g = $("systemGrid"), admin = me.role === "admin"; g.textContent = "";
+  const used = sy.mem_total_kb - sy.mem_available_kb;
+  const c1 = card("System", "🖥", "green", pill("up " + dur(sy.uptime_secs)));
+  tiles(c1, [["Load 1m", sy.load[0].toFixed(2)], ["5m", sy.load[1].toFixed(2)], ["15m", sy.load[2].toFixed(2)], ["CPU", sy.cpu_mhz, "MHz"]]);
+  kv(c1, [["Memory", bytes(used * 1024) + " / " + bytes(sy.mem_total_kb * 1024)]]); bar(c1, used / Math.max(1, sy.mem_total_kb));
+  kv(c1, [["zram swap", bytes(sy.swap_used_kb * 1024) + " / " + bytes(sy.swap_total_kb * 1024)]]); bar(c1, sy.swap_used_kb / Math.max(1, sy.swap_total_kb));
+  kv(c1, [["Disk /", bytes(sy.disk_used) + " / " + bytes(sy.disk_total)]]); bar(c1, sy.disk_used / Math.max(1, sy.disk_total));
+  kv(c1, [["Model", sy.model], ["OS", sy.os], ["Kernel", sy.kernel], ["Cores", String(sy.cpus)]]);
+  if (admin) { const a = el("div", "actions"); a.appendChild(actBtn("⏻ Reboot", "reboot", "Reboot " + (sy.hostname || "the dongle") + "? It will be offline for about a minute.", true)); c1.appendChild(a); }
+  g.appendChild(c1);
+
+  const c2 = card("Temperatures", "🌡", "peach");
+  tiles(c2, sy.temps.map(t => [t[0], t[1].toFixed(1), "°C", t[1] < 60 ? "good" : t[1] < 75 ? "ok" : "bad"]));
+  if (hist && hist.points.length) c2.appendChild(lineChart(hist.points, [{key: "temp_cpu", label: "CPU max", color: "peach", unit: " °C"}, {key: "temp_modem", label: "Modem", color: "blue", unit: " °C"}], {id: "temp", min: 35, max: 65, zones: [[60, 75, "ok"], [75, 200, "bad"]], h: 140}));
+  else noData(c2);
+  g.appendChild(c2);
+
+  const fl = card("Flash writes", "💾", "yellow");
+  const fpts = hist && hist.points.filter(p => p.flash_kib_min != null);
+  const favg = fpts && fpts.length ? fpts.reduce((a, p) => a + p.flash_kib_min, 0) / fpts.length : null;
+  tiles(fl, [["Since boot", sy.flash_written_since_boot != null ? bytes(sy.flash_written_since_boot) : null], ["ext4 lifetime", sy.ext4_lifetime_kib != null ? bytes(sy.ext4_lifetime_kib * 1024) : null],
+    ["Avg rate", favg != null ? (favg >= 1024 ? (favg / 1024).toFixed(1) + " MiB" : favg.toFixed(0) + " KiB") : null, "/min"], ["≈ per day", favg != null ? bytes(favg * 1024 * 1440) : null]]);
+  if (hist && hist.points.length) fl.appendChild(lineChart(hist.points, [{key: "flash_kib_min", label: "written", color: "yellow", unit: " KiB/min"}], {id: "flash", min: 0, max: 200, h: 120, legend: true}));
+  else noData(fl);
+  fl.appendChild(el("div", "mut small", "Measured from the eMMC's own write counter (whole chip, since boot). The chip doesn't report wear itself; a similar SK hynix 4 GB part is rated ~2.4 TB TBW (datasheet not verified)."));
+  g.appendChild(fl);
+
+  const c3 = card("Memory history", "🧠", "mauve", rangeButtons());
+  if (hist && hist.points.length) c3.appendChild(lineChart(hist.points, [{key: "mem_used_pct", label: "RAM used", color: "mauve", unit: " %"}], {id: "mem", min: 0, max: 100, zones: [[75, 90, "ok"], [90, 200, "bad"]], h: 130, legend: true}));
+  else noData(c3);
+  g.appendChild(c3);
+
+  const c4 = card("Services & LEDs", "⚙️", "pink");
+  const svc = el("div", "svc");
+  s.services.forEach(x => { const d = el("div"); d.title = x.name + ": " + x.state; d.appendChild(el("i", "dot " + stateCls(x.state))); d.appendChild(el("span", null, x.name + (x.state === "active" ? "" : " · " + x.state))); svc.appendChild(d); });
+  c4.appendChild(svc);
+  const lw = el("div", "leds");
+  s.leds.forEach(x => { const col = x.name.split(":")[0], d = el("div", "led " + col + (x.on || x.trigger === "timer" ? " on" : "") + (x.trigger === "timer" ? " blink" : ""));
+    d.appendChild(el("i")); d.appendChild(el("span", null, x.name.split(":")[1] + (x.trigger && x.trigger !== "none" ? " · " + x.trigger : ""))); lw.appendChild(d); });
+  c4.appendChild(lw);
+  g.appendChild(c4);
+}
+
+function actBtn(label, action, confirmText, danger) {
+  const b = el("button", danger ? "danger" : "", label);
+  b.onclick = async ev => {
+    ev.stopPropagation();
+    if (confirmText && !confirm(confirmText)) return;
+    b.disabled = true;
+    try { const r = await api("/api/action/" + action, {method: "POST"}); if (r.note) b.textContent = r.note; setTimeout(refresh, 1500); }
+    catch (e) { alert(label + " failed: " + e.message); }
+    finally { setTimeout(() => { b.disabled = false; b.textContent = label; }, 4000); }
+  };
+  return b;
+}
+
+// ---------- Wi-Fi calling (dongie-ims) ----------
+const CALL_CLS = {answered: "good", ringing: "ok", dialing: "ok", missed: "bad", rejected: "bad", failed: "bad"};
+function imsCard(i, admin) {
+  const c = card("Wi-Fi Calling", "📞", "green", pill(i.registered ? "registered" : (i.status || "down"), i.registered ? "good" : i.status === "connecting" || i.status === "reconnecting" ? "ok" : "bad"));
+  hero(c, i.registered ? "VoWiFi" : "offline", i.registered ? "IMS over LTE · since " + ago(i.since).replace(" ago", "") : (i.last_error_at ? "last error " + ago(i.last_error_at) : ""), i.registered ? "good" : "bad");
+  kv(c, [["Registrations", String(i.registrations ?? 0)], ["Incoming calls", i.on_call === "reject" ? "rejected (busy)" : "ring · answer in browser"],
+    ["Number", admin ? i.msisdn : undefined], ["Inner IP", admin ? i.inner_ip : undefined],
+    ["P-CSCF", admin && i.pcscf && i.pcscf.length ? i.pcscf.join(", ") : undefined],
+    ["Last error", admin && i.last_error ? i.last_error : undefined, "bad"], ["dongie-ims", i.version]], true);
+  if (admin) {
+    if (callsSupported()) {
+      const d = el("div", "dial"), inp = el("input"); inp.placeholder = "+34… or 6…"; inp.inputMode = "tel"; inp.id = "dialTo"; inp.value = dialDraft;
+      inp.oninput = () => { dialDraft = inp.value; };
+      const b = el("button", "pri", "📞 Call"); b.disabled = !i.registered || pcCallId != null;
+      const go = () => { const to = inp.value.replace(/[\s()-]/g, ""); if (to) dialNumber(to); };
+      b.onclick = go; inp.onkeydown = e => { if (e.key === "Enter") go(); };
+      d.appendChild(inp); d.appendChild(b); c.appendChild(d);
+      c.appendChild(el("div", "hint", "Calls use this browser's microphone and speaker. Outgoing calls are charged to the SIM."));
+    } else {
+      const h = el("div", "hint"), dn = status.tailscale && status.tailscale.dns_name;
+      h.appendChild(document.createTextNode("📞 Browser calls need HTTPS (microphone access). "));
+      if (dn) { const a = el("a", null, "Open https://" + dn); a.href = "https://" + dn + "/#mobile"; h.appendChild(a); }
+      c.appendChild(h);
+    }
+    if (!calls.length) c.appendChild(el("div", "msg-empty", "No calls yet 🐹 (call log is RAM only)"));
+    else {
+      const tw = el("div", "tscroll"), t = el("table"), hr = el("tr");
+      ["When", "Number", "Result", "Codec", ""].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+      calls.slice(0, 10).forEach(x => {
+        const r = el("tr");
+        r.appendChild(el("td", null, new Date(x.at * 1000).toLocaleString()));
+        r.appendChild(el("td", null, (x.dir === "out" ? "↗ " : "↙ ") + (x.from || "unknown")));
+        const rc = el("td"); rc.appendChild(pill(x.result + (x.ended && x.ended_at && x.result === "answered" ? " · " + dur(x.ended_at - x.at).trim() : ""), CALL_CLS[x.result])); r.appendChild(rc);
+        r.appendChild(el("td", null, x.codec || (x.codecs || []).join(", ") || "—"));
+        const ac = el("td");
+        if (!x.ended && x.result === "ringing") {
+          const b = el("button", null, "✋ Reject");
+          b.onclick = async () => { b.disabled = true; try { await api("/api/calls/" + x.id + "/reject", {method: "POST"}); await loadCalls(true); } catch (e) { alert("Reject failed: " + e.message); b.disabled = false; } };
+          ac.appendChild(b);
+        }
+        r.appendChild(ac); t.appendChild(r);
+      });
+      tw.appendChild(t); c.appendChild(tw);
+    }
+  }
+  return c;
+}
+async function loadCalls(force) {
+  if (me.role !== "admin" || !status || !status.ims) return;
+  try {
+    const r = await api("/api/calls"), key = JSON.stringify(r.calls.map(x => [x.id, x.result, x.ended]));
+    if (key === loadCalls.key && !force) { renderCallBar(); return; }
+    loadCalls.key = key; calls = r.calls;
+    renderCallBar();
+    if (tab === "mobile" && !(document.activeElement && document.activeElement.id === "dialTo")) renderTab();
+  } catch (_) {}
+}
+
+// ---------- ?redact: screenshot mode ----------
+// Opening the page with ?redact masks IP addresses (except the generic 192.168.x and
+// Tailscale's fixed DNS addresses) and fakes the tailnet peer counts, so screenshots
+// can be shared. Display only — nothing changes on the server.
+const REDACT = new URLSearchParams(location.search).has("redact");
+// host name, MagicDNS name and SSIDs of this stick -> mystick / MyStick
+let redactNamesRe = null;
+function redactNames(st) {
+  const names = new Set(), add = v => { if (typeof v === "string" && v.trim().length >= 3) names.add(v.trim()); };
+  add(st.system && st.system.hostname); add(st.tailscale && st.tailscale.hostname);
+  const dn = st.tailscale && st.tailscale.dns_name;
+  if (dn) { add(dn); add(dn.split(".")[0]); }
+  JSON.stringify(st, (k, v) => { if (k === "ssid") add(v); return v; });
+  const list = [...names].sort((a, b) => b.length - a.length).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  redactNamesRe = list.length ? new RegExp("\\b(" + list.join("|") + ")\\b", "gi") : null;
+}
+function redactText(t) {
+  if (redactNamesRe) t = t.replace(redactNamesRe, m => m.includes(".") ? "mystick.example.ts.net" : /^[A-Z]/.test(m) ? "MyStick" : "mystick");
+  return t
+    .replace(/\b(?!192\.168\.)(?!100\.100\.100\.100\b)(\d{1,3})\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, "$1.x.x.x")
+    .replace(/\bfd7a:115c:a1e0:[0-9a-f:]*[0-9a-f]\b/gi, m => m.toLowerCase() === "fd7a:115c:a1e0::53" ? m : "fd7a:115c:a1e0::x")
+    .replace(/\b2[0-9a-f]{3}:[0-9a-f:]{3,}[0-9a-f]\b/gi, "2xxx::x");
+}
+function redactTree(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) { const v = redactText(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
+  if (root.querySelectorAll) root.querySelectorAll("[title]").forEach(e => { const v = redactText(e.title); if (v !== e.title) e.title = v; });
+}
+if (REDACT) {
+  new MutationObserver(ms => ms.forEach(m => {
+    if (m.type === "characterData") { const v = redactText(m.target.nodeValue); if (v !== m.target.nodeValue) m.target.nodeValue = v; }
+    else m.addedNodes.forEach(n => n.nodeType === 3 ? (n.nodeValue = redactText(n.nodeValue)) : redactTree(n));
+  })).observe(document.documentElement, {subtree: true, childList: true, characterData: true});
+}
+
+// ---------- browser calls (WebRTC via dongie-ims) ----------
+let pc = null, micStream = null, pcCallId = null, muted = false, keypadOpen = false, dialDraft = "", toneKind = null, toneCtx = null, toneTimer = null;
+const remoteAudio = new Audio(); remoteAudio.autoplay = true;
+const BASE_TITLE = document.title;
+function callsSupported() { return window.isSecureContext && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!window.RTCPeerConnection; }
+function startTone(kind) {
+  if (toneKind === kind) return; stopTone(); toneKind = kind;
+  try { toneCtx = new AudioContext(); } catch (_) { return; }
+  const beep = () => { if (!toneCtx) return; const o = toneCtx.createOscillator(), g = toneCtx.createGain();
+    o.frequency.value = kind === "ring" ? 880 : 425; g.gain.value = kind === "ring" ? 0.12 : 0.06;
+    o.connect(g); g.connect(toneCtx.destination); o.start(); o.stop(toneCtx.currentTime + (kind === "ring" ? 0.35 : 1.5)); };
+  beep(); toneTimer = setInterval(beep, kind === "ring" ? 1100 : 4500);
+}
+function stopTone() { clearInterval(toneTimer); toneTimer = null; toneKind = null; if (toneCtx) { toneCtx.close().catch(() => {}); toneCtx = null; } }
+async function makeOffer() {
+  micStream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true}});
+  pc = new RTCPeerConnection({iceServers: []});
+  micStream.getTracks().forEach(t => pc.addTrack(t, micStream));
+  const tr = pc.getTransceivers()[0];
+  try { const g = RTCRtpReceiver.getCapabilities("audio").codecs.filter(c => /g722/i.test(c.mimeType)); if (g.length && tr.setCodecPreferences) tr.setCodecPreferences(g); } catch (_) {}
+  pc.ontrack = e => { remoteAudio.srcObject = e.streams[0] || new MediaStream([e.track]); remoteAudio.play().catch(() => {}); };
+  pc.onconnectionstatechange = () => { if (pc && ["failed", "closed"].includes(pc.connectionState)) endLocal(); else renderCallBar(); };
+  await pc.setLocalDescription(await pc.createOffer());
+  await new Promise(res => {
+    if (pc.iceGatheringState === "complete") return res();
+    const t = setTimeout(res, 2500);
+    pc.addEventListener("icegatheringstatechange", () => { if (pc && pc.iceGatheringState === "complete") { clearTimeout(t); res(); } });
+  });
+  return pc.localDescription.sdp;
+}
+function endLocal() {
+  if (pc) { try { pc.close(); } catch (_) {} }
+  pc = null; pcCallId = null; muted = false; keypadOpen = false;
+  if (micStream) micStream.getTracks().forEach(t => t.stop());
+  micStream = null; remoteAudio.srcObject = null; stopTone(); renderCallBar();
+}
+async function answerCall(id) {
+  pcCallId = id; stopTone(); renderCallBar(); // claim the call first: no re-ring while the mic prompt is open
+  try { const sdp = await makeOffer(); renderCallBar();
+    const r = await api("/api/calls/" + id + "/answer", {method: "POST", json: {sdp}});
+    await pc.setRemoteDescription({type: "answer", sdp: r.sdp}); }
+  catch (e) { endLocal(); alert("Answer failed: " + e.message); }
+  loadCalls(true);
+}
+async function dialNumber(to) {
+  if (!confirm("Call " + to + " from the SIM?\nOutgoing calls are charged to the SIM.")) return;
+  try { const sdp = await makeOffer(); pcCallId = -1; renderCallBar();
+    const r = await api("/api/calls/dial", {method: "POST", json: {to, sdp}});
+    pcCallId = r.id; await pc.setRemoteDescription({type: "answer", sdp: r.sdp}); startTone("ringback"); dialDraft = ""; }
+  catch (e) { endLocal(); alert("Call failed: " + e.message); }
+  loadCalls(true);
+}
+async function hangupCall(id) {
+  try { await api("/api/calls/" + id + "/hangup", {method: "POST", json: {}}); } catch (_) {}
+  if (id === pcCallId) endLocal();
+  loadCalls(true);
+}
+function toggleMute() { muted = !muted; if (micStream) micStream.getAudioTracks().forEach(t => t.enabled = !muted); renderCallBar(); }
+function renderCallBar() {
+  const bar = $("callbar");
+  if (me.role !== "admin") { bar.hidden = true; return; }
+  const live = calls.filter(c => !c.ended);
+  const mine = pcCallId != null ? calls.find(c => c.id === pcCallId) : null;
+  if (mine && mine.ended) { endLocal(); return; }
+  const active = mine || live.find(c => c.result === "answered" || c.result === "dialing");
+  const ringing = live.find(c => c.dir === "in" && c.result === "ringing" && c.id !== pcCallId);
+  bar.textContent = ""; bar.className = "";
+  if (!active && !ringing && pcCallId == null) { bar.hidden = true; if (toneKind === "ring") stopTone(); document.title = BASE_TITLE; return; }
+  bar.hidden = false;
+  if (active || pcCallId != null) {
+    const c = active || {id: pcCallId, from: "…", result: "dialing", dir: "out"}, own = pcCallId != null && (c.id === pcCallId || pcCallId === -1);
+    // only an outgoing call that is still ringing may play a tone (ringback)
+    if (toneKind && !(own && c.dir === "out" && c.result !== "answered" && toneKind === "ringback")) stopTone();
+    const row = el("div", "row"), info = el("div");
+    info.appendChild(el("div", "who", (c.dir === "out" ? "↗ " : "↙ ") + (c.from || "unknown")));
+    const secs = c.answered_at ? Math.max(0, Math.round(Date.now() / 1000 - c.answered_at)) : 0;
+    const st = c.result === "answered" ? "🟢 " + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + (c.codec ? " · " + c.codec : "") + (pc ? " · " + pc.connectionState : "")
+      : c.dir === "out" ? "calling…" : "connecting…";
+    info.appendChild(el("div", "st", own ? st : st + " · on another device"));
+    row.appendChild(info); row.appendChild(el("span", "sp"));
+    if (own) {
+      const m = el("button", null, muted ? "🔇 Unmute" : "🎙 Mute"); m.onclick = toggleMute; row.appendChild(m);
+      const k = el("button", null, "⌨"); k.title = "Keypad (DTMF)"; k.onclick = () => { keypadOpen = !keypadOpen; renderCallBar(); }; row.appendChild(k);
+    }
+    const h = el("button", "end", "Hang up"); h.onclick = () => hangupCall(c.id); row.appendChild(h);
+    bar.appendChild(row);
+    if (own && keypadOpen && c.result === "answered") {
+      const kp = el("div", "keypad");
+      "123456789*0#".split("").forEach(d => { const b = el("button", null, d); b.onclick = () => api("/api/calls/" + c.id + "/dtmf", {method: "POST", json: {digits: d}}).catch(() => {}); kp.appendChild(b); });
+      bar.appendChild(kp);
+    }
+    document.title = "📞 " + (c.from || "call") + " · " + BASE_TITLE;
+    return;
+  }
+  bar.className = "ringing";
+  const row = el("div", "row"), info = el("div");
+  info.appendChild(el("div", "who", "📞 " + (ringing.from || "unknown number")));
+  info.appendChild(el("div", "st", "incoming call" + (ringing.codecs && ringing.codecs.includes("AMR-WB") ? " · HD" : "")));
+  row.appendChild(info); row.appendChild(el("span", "sp"));
+  const a = el("button", "ok", "Answer"); a.onclick = () => answerCall(ringing.id);
+  if (!callsSupported()) { a.disabled = true; a.title = "needs HTTPS (microphone)"; }
+  const rj = el("button", "end", "Reject"); rj.onclick = () => hangupCall(ringing.id);
+  row.appendChild(a); row.appendChild(rj); bar.appendChild(row);
+  document.title = "📞 Incoming call · " + BASE_TITLE;
+  startTone("ring");
+}
+
+// ---------- SMS ----------
+function updateMsgNav() {
+  const show = me.role === "admin" && me.sms_available; $("navMsgs").hidden = !show;
+  const unread = msgs.filter(m => m.dir === "in" && !m.read).length;
+  $("navBadge").hidden = !unread; $("navBadge").textContent = unread;
+  if (!show && tab === "messages") go("home");
+}
+function renderSms() {
+  if (me.role !== "admin" || !me.sms_available) return;
+  const unread = msgs.filter(m => m.dir === "in" && !m.read).length;
+  $("unread").textContent = unread ? unread + " unread" : msgs.length + " in RAM";
+  $("unread").className = "pill" + (unread ? " good" : "");
+  const byNum = {};
+  msgs.forEach(m => { (byNum[m.number] = byNum[m.number] || []).push(m); });
+  const nums = Object.keys(byNum).sort((a, b) => byNum[b][0].stored_at - byNum[a][0].stored_at);
+  const cv = $("convs"); cv.textContent = "";
+  const nb = el("div", "conv new" + (sel === null ? " sel" : "")); nb.appendChild(el("span", "n", "＋ New message")); nb.onclick = () => { sel = null; $("to").value = ""; renderSms(); $("to").focus(); }; cv.appendChild(nb);
+  nums.forEach(n => {
+    const c = el("div", "conv" + (n === sel ? " sel" : "")), left = el("div");
+    left.appendChild(el("div", "n", n)); left.appendChild(el("div", "p", byNum[n][0].text)); c.appendChild(left);
+    const ur = byNum[n].filter(m => m.dir === "in" && !m.read).length; if (ur) c.appendChild(el("span", "badge", ur));
+    c.onclick = () => openConv(n); cv.appendChild(c);
+  });
+  const box = $("msgs"); box.textContent = "";
+  if (sel && byNum[sel]) {
+    byNum[sel].slice().reverse().forEach(m => {
+      const b = el("div", "m " + m.dir, m.text);
+      const icon = {sending: "⏳", sent: "✓", delivered: "✓✓", pending: "…", failed: "✗"}[m.state] || "";
+      b.appendChild(el("div", "meta", new Date(m.timestamp).toLocaleString() + (m.via === "ims" ? " · via Wi-Fi calling" : "") + (m.dir === "out" ? "  " + icon : "") + (m.error ? " · " + m.error : "")));
+      box.appendChild(b);
+    });
+    box.scrollTop = box.scrollHeight;
+  } else box.appendChild(el("div", "msg-empty", msgs.length ? "Pick a conversation, or start a new one ✨" : "No messages yet 🐹\nThey're kept in RAM only and are gone after a restart."));
+}
+async function openConv(n) {
+  sel = n; $("to").value = n; renderSms();
+  if (msgs.some(m => m.number === n && m.dir === "in" && !m.read)) { try { await api("/api/messages/read", {method: "POST", json: {number: n}}); loadMsgs(); } catch (_) {} }
+}
+function smsCount() {
+  const t = $("text").value, gsm = /^[\x20-\x7E\n\r£¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ¤¡ÄÖÑÜ§¿äöñüà€\^{}\\\[~\]|]*$/.test(t);
+  const per = gsm ? (t.length > 160 ? 153 : 160) : (t.length > 70 ? 67 : 70);
+  $("cnt").textContent = t.length + " · " + (t.length ? Math.ceil(t.length / per) : 0) + " SMS" + (gsm ? "" : " (unicode)");
+}
+async function send() {
+  const to = $("to").value.trim(), text = $("text").value;
+  $("smsErr").textContent = "";
+  if (!to || !text) { $("smsErr").textContent = "number and text needed"; return; }
+  $("sendBtn").disabled = true;
+  try { await api("/api/messages", {method: "POST", json: {to, text}}); $("text").value = ""; smsCount(); sel = to.replace(/\s/g, ""); await loadMsgs(); }
+  catch (e) { $("smsErr").textContent = "Send failed: " + e.message; }
+  finally { $("sendBtn").disabled = false; }
+}
+async function loadMsgs() {
+  if (me.role !== "admin" || !me.sms_available) { updateMsgNav(); return; }
+  try {
+    const r = await api("/api/messages"), key = JSON.stringify(r.messages.map(m => [m.id, m.state, m.read])), changed = key !== loadMsgs.key;
+    loadMsgs.key = key; msgs = r.messages; updateMsgNav();
+    if (changed && tab === "messages") renderSms();
+    if (changed && tab === "home" && status) renderTab();
+  } catch (e) { $("smsErr").textContent = e.message; }
+}
+
+// ---------- data loading ----------
+async function loadHistory(force) {
+  if (!force && Date.now() - histAt < 30000) return;
+  try { hist = await api("/api/history?range=" + range + "&points=240"); histAt = Date.now(); if (tab === "mobile" || tab === "system") renderTab(); } catch (_) {}
+}
+async function refresh(force) {
+  try {
+    const st = await api("/api/status");
+    // the server collects every 10 s; only redraw when something new arrived
+    const changed = force || !status || st.updated !== status.updated;
+    if (REDACT) redactNames(st);
+    if (REDACT && st.tailscale) { st.tailscale.peers_online = 7; st.tailscale.peers_total = 12; st.tailscale.health = []; }
+    status = st; if (changed) renderTab();
+  } catch (e) { $("subtitle").textContent = "⚠ " + e.message; }
+  if (tab === "mobile" || tab === "system") loadHistory(false);
+  if (tab === "network") loadNet(false);
+}
+async function loadNet(force) {
+  if (!force && Date.now() - netAt < 10000) return;
+  try { net = await api("/api/net"); netAt = Date.now(); if (tab === "network") renderTab(); } catch (_) {}
+}
+function go(t) { if (location.hash !== "#" + t) location.hash = t; else onHash(); }
+function onHash() {
+  const t = (location.hash || "#home").slice(1);
+  tab = ["home", "mobile", "network", "system", "messages"].includes(t) ? t : "home";
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("act", a.dataset.tab === tab));
+  document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== "tab-" + tab);
+  renderTab();
+  if (tab === "mobile" || tab === "system") loadHistory(true);
+  if (tab === "network") loadNet(true);
+  if (tab === "messages") loadMsgs();
+  if (tab === "mobile") loadCalls(true);
+}
+window.addEventListener("hashchange", onHash);
+let resizeT = null;
+window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { chartCache.clear(); renderTab(); }, 250); });
+
+// ---------- auth ----------
+async function loadMe() {
+  me = await api("/api/me");
+  $("who").textContent = me.user ? "👤 " + me.user + " · " + me.role : (me.role === "guest" ? "👀 guest" : "not logged in");
+  $("loginBtn").hidden = !!me.user; $("logoutBtn").hidden = !me.user;
+  updateMsgNav();
+}
+$("loginBtn").onclick = () => { $("lerr").textContent = ""; $("loginDlg").showModal(); $("lu").focus(); };
+$("logoutBtn").onclick = async () => { await api("/api/logout", {method: "POST"}).catch(() => {}); endLocal(); msgs = []; calls = []; net = null; await loadMe(); refresh(true); loadNet(true); };
+$("loginForm").addEventListener("submit", async ev => {
+  if (ev.submitter && ev.submitter.value === "cancel") return;
+  ev.preventDefault(); $("lgo").disabled = true; $("lerr").textContent = "";
+  try { await api("/api/login", {method: "POST", json: {user: $("lu").value, pass: $("lp").value}}); $("lp").value = ""; $("loginDlg").close(); await loadMe(); refresh(true); loadMsgs(); loadCalls(true); loadNet(true); }
+  catch (e) { $("lerr").textContent = e.message; }
+  finally { $("lgo").disabled = false; }
+});
+$("sendBtn").onclick = send;
+$("text").addEventListener("input", smsCount);
+$("text").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(); });
+
+(async () => {
+  try { await loadMe(); } catch (e) { $("subtitle").textContent = "⚠ " + e.message; }
+  onHash(); await refresh(); loadMsgs(); smsCount();
+  setInterval(refresh, 5000);
+  setInterval(loadMsgs, 5000);
+  setInterval(loadCalls, 2000);
+  setInterval(() => { if (pcCallId != null) renderCallBar(); }, 1000);
+})();
+</script>
+</body>
+</html>

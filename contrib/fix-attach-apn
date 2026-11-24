@@ -1,0 +1,67 @@
+#!/bin/bash
+# SPDX-License-Identifier: EUPL-1.2
+# fix-attach-apn — make the modem attach to LTE with the right APN.
+#
+# Why: the UZ801 modem firmware (2015) re-seeds its LTE initial-attach profile
+# (QMI 3GPP profile 3, "qdp_profile") at every modem boot with APN
+# 'mobile.three.com.hk' (Three Hong Kong). With that APN, Orange/Simyo never lets
+# the stick register on LTE ("Network timeout" / "registration-denied").
+# ModemManager/NetworkManager can't set it (old firmware rejects MM's profile
+# update with QMI error 81), but a plain `qmicli --wds-modify-profile` works.
+#
+# Runs once at boot (fix-attach-apn.service). Logs go to the journal.
+# Set up 2026-11-24 on a UZ801 with an Orange ES (Simyo) SIM. Credit for the diagnosis: Alejandro.
+
+APN="${APN:-orangeworld}"
+PROFILE="${PROFILE:-3}"
+DEV="${DEV:-/dev/wwan0qmi0}"
+QMI="qmicli -p -d $DEV"
+
+log() { echo "fix-attach-apn: $*"; }
+
+# wait for ModemManager to see the modem and the QMI port to exist (max ~2 min)
+for i in $(seq 1 60); do
+  [ -e "$DEV" ] && mmcli -m any >/dev/null 2>&1 && break
+  sleep 2
+done
+if ! mmcli -m any >/dev/null 2>&1; then
+  log "modem never showed up in ModemManager, giving up"; exit 1
+fi
+
+get_apn() {
+  $QMI --wds-get-profile-list=3gpp 2>/dev/null | awk -v p="[$PROFILE]" '
+    $1 == p { found = 1; next }
+    found && /APN:/ { s = $0; sub(/.*APN: \x27/, "", s); sub(/\x27.*/, "", s); print s; exit }
+    found && /^\t\[/ { exit }'
+}
+
+cur="$(get_apn)"
+if [ "$cur" = "$APN" ]; then
+  log "profile $PROFILE already has APN '$APN', nothing to do"
+  exit 0
+fi
+
+log "profile $PROFILE has APN '$cur', setting it to '$APN'"
+if ! $QMI --wds-modify-profile="3gpp,$PROFILE,apn=$APN" >/dev/null 2>&1; then
+  log "qmicli modify-profile FAILED"; exit 1
+fi
+new="$(get_apn)"
+if [ "$new" != "$APN" ]; then
+  log "read-back mismatch: profile $PROFILE has '$new'"; exit 1
+fi
+log "profile $PROFILE now '$new'; power-cycling modem so it re-attaches"
+
+mmcli -m any --disable >/dev/null 2>&1
+sleep 2
+mmcli -m any --enable >/dev/null 2>&1
+
+# NetworkManager may have used up its autoconnect retries meanwhile; kick it
+for i in $(seq 1 3); do
+  if timeout 100 nmcli con up lte >/dev/null 2>&1; then
+    log "lte connection up"; exit 0
+  fi
+  log "nmcli con up lte attempt $i failed, retrying"
+  sleep 10
+done
+log "lte did not come up yet; NetworkManager autoconnect will keep trying"
+exit 0

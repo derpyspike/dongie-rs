@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: EUPL-1.2
+# /etc/dongie/config.toml — all keys optional, these are the defaults.
+web_listen = "127.0.0.1:8040"        # web UI + login: set your stick's Tailscale IP
+api_listen = "127.0.0.1:8041"        # unauthenticated API: Tailscale IP only, never 0.0.0.0
+api_enabled = true
+api_allow_sms = true                 # the unauthenticated API (Tailscale only) may read/send SMS
+anonymous_guest = true               # dashboard visible without login (no SMS, no actions)
+users_file = "/etc/dongie/users"
+state_dir = "/var/lib/dongie"
+qmi_device = "/dev/wwan0qmi0"
+hotspot_connection = "hotspot"
+lte_connection = "lte"
+poll_secs = 10
+max_messages = 500
+services = ["ModemManager", "NetworkManager", "tailscaled", "fix-attach-apn", "dongie-leds", "ssh", "systemd-zram-setup@zram0", "dongie-ims"]
+
+# dongie-ims (Wi-Fi calling) API socket; "" turns the integration off
+ims_socket = "/run/dongie-ims/api.sock"

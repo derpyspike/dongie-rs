@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: EUPL-1.2
+[Unit]
+Description=UZ801 status LEDs (blue = LTE, green = Tailscale)
+After=ModemManager.service tailscaled.service
+
+[Service]
+ExecStart=/usr/local/sbin/dongie-leds
+Restart=always
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: EUPL-1.2
+# lte-status — one-screen modem summary for the OpenStick (ModemManager + QMI).
+#   lte-status       show once
+#   lte-status -w    live view, refresh every 5 s (Ctrl-C to quit)
+#   lte-status -p    also ping 1.1.1.1 over wwan0 to prove data works
+# Thresholds (rough field guide):
+#   LTE  RSRP  > -90 good | -90..-105 ok | < -105 bad      (dBm)
+#        RSRQ  > -10 good | -10..-15  ok | < -15  bad      (dB)
+#        SNR   > 10  good | 0..10     ok | < 0    bad      (dB)
+#   3G   RSSI  > -75 good | -75..-95  ok | < -95  bad      (dBm)
+#        Ec/Io > -6  good | -6..-12   ok | < -12  bad      (dB)
+#        RSCP  > -85 good | -85..-100 ok | < -100 bad      (dBm, if reported)
+# Missing values are printed as red "??" on purpose: bad data is flagged, not hidden.
+
+set -u
+WATCH=0; PING=0
+for a in "$@"; do
+  case "$a" in
+    -w) WATCH=1 ;;
+    -p) PING=1 ;;
+    -h|--help) sed -n "2,14p" "$0"; exit 0 ;;
+    *) echo "unknown option: $a (try -h)" >&2; exit 2 ;;
+  esac
+done
+
+SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo -n"
+QMI_DEV=/dev/wwan0qmi0
+
+R=$'\e[31m'; G=$'\e[32m'; Y=$'\e[33m'; B=$'\e[1m'; N=$'\e[0m'
+[ -t 1 ] || { R=""; G=""; Y=""; B=""; N=""; }
+
+missing() { printf '%s??%s' "$R" "$N"; }
+
+# kv TEXT KEY -> value for KEY (literal match); empty if absent or "--"
+kv() { printf '%s\n' "$1" | awk -v k="$2" '{ i = index($0, ": "); if (!i) next; key = substr($0, 1, i-1); sub(/ +$/, "", key); if (key == k) { v = substr($0, i+2); sub(/^ +/, "", v); if (v != "--") print v; exit } }'; }
+
+# rate VALUE GOOD OK  -> coloured VALUE (higher = better)
+rate() {
+  local v="$1" good="$2" ok="$3" unit="$4"
+  if [ -z "$v" ] || [ "$v" = "--" ]; then missing; return; fi
+  local c
+  c=$(awk -v v="$v" -v g="$good" -v o="$ok" 'BEGIN{ if (v>g) print "g"; else if (v>=o) print "y"; else print "r" }')
+  case "$c" in g) printf '%s%s %s%s' "$G" "$v" "$unit" "$N" ;; y) printf '%s%s %s%s' "$Y" "$v" "$unit" "$N" ;; *) printf '%s%s %s%s' "$R" "$v" "$unit" "$N" ;; esac
+}
+
+show() {
+  local M S
+  M=$(mmcli -m any -K 2>/dev/null)
+  if [ -z "$M" ]; then echo "${R}No modem found by ModemManager.${N}"; return 1; fi
+
+  local state tech reg opname opcode modes pref fail
+  state=$(kv "$M" "modem.generic.state")
+  fail=$(kv "$M" "modem.generic.state-failed-reason")
+  tech=$(kv "$M" "modem.generic.access-technologies.value[1]")
+  reg=$(kv "$M" "modem.3gpp.registration-state")
+  opname=$(kv "$M" "modem.3gpp.operator-name")
+  opcode=$(kv "$M" "modem.3gpp.operator-code")
+  modes=$(kv "$M" "modem.generic.current-modes")
+
+  # signal straight from QMI (instant; no ModemManager polling, no journal spam)
+  # output looks like:  LTE:\n\tRSSI: '-76 dBm'\n\tRSRP: '-116 dBm' ...  /  WCDMA:\n\tECIO: '-16.0 dBm'
+  S=$($SUDO qmicli -p -d "$QMI_DEV" --nas-get-signal-info 2>/dev/null | awk -F"'" '
+    /^[A-Z0-9]+:$/ { sec = tolower(substr($0, 1, length($0)-1)); next }
+    /^\t[A-Z]+:/   { k = $1; gsub(/[\t: ]/, "", k); split($2, v, " "); print sec "." tolower(k) ": " v[1] }')
+
+  # band/channel from QMI
+  local Q band chan
+  Q=$($SUDO qmicli -p -d "$QMI_DEV" --nas-get-rf-band-info 2>/dev/null)
+  band=$(printf '%s\n' "$Q" | awk -F"'" '/Active Band Class/ {print $2; exit}')
+  chan=$(printf '%s\n' "$Q" | awk -F"'" '/Active Channel/ {print $2; exit}')
+
+  # colour state
+  local st
+  case "$state" in
+    connected) st="${G}${state}${N}" ;;
+    registered|connecting) st="${Y}${state}${N}" ;;
+    "") st=$(missing) ;;
+    *) st="${R}${state}${N}" ;;
+  esac
+  [ -n "$fail" ] && [ "$fail" != "--" ] && st="$st ${R}(${fail})${N}"
+
+  local tt
+  case "$tech" in
+    lte) tt="${G}4G (lte)${N}" ;;
+    umts|hspa|hsdpa|hsupa|hspa-plus) tt="${Y}3G (${tech})${N}" ;;
+    ""|--) tt="$(missing) ${R}none reported — modem is ${state:-?}${N}"
+           case "$state" in searching|registered|enabling|enabled) tt="$tt ${R}(no network right now)${N}" ;; esac ;;
+    *) tt="$tech" ;;
+  esac
+
+  echo "${B}== OpenStick LTE status ==${N}  $(date '+%F %T %Z')"
+  printf '  %-12s %s\n' "State:" "$st"
+  printf '  %-12s %s\n' "Tech:" "$tt"
+  printf '  %-12s %s\n' "Network:" "${opname:-$(missing)} (${opcode:-$(missing)}), registration: ${reg:-$(missing)}"
+  if [ -n "$band" ]; then
+    printf '  %-12s %s\n' "Band:" "$band, channel $chan"
+  else
+    printf '  %-12s %s\n' "Band:" "$(missing) (none reported — no network, or qmicli not permitted)"
+  fi
+
+  # signal block depending on tech
+  local rsrp rsrq snr rscp ecio urssi
+  has() { [ -n "$1" ] && [ "$1" != "--" ]; }
+  rsrp=$(kv "$S" "lte.rsrp"); rsrq=$(kv "$S" "lte.rsrq"); snr=$(kv "$S" "lte.snr")
+  rscp=$(kv "$S" "wcdma.rscp"); ecio=$(kv "$S" "wcdma.ecio"); urssi=$(kv "$S" "wcdma.rssi")
+  local shown=0
+  if has "$rsrp" || has "$rsrq"; then
+    printf '  %-12s RSRP %s | RSRQ %s | SNR %s\n' "LTE signal:" \
+      "$(rate "$rsrp" -90 -105 dBm)" "$(rate "$rsrq" -10 -15 dB)" "$(rate "$snr" 10 0 dB)"
+    shown=1
+  fi
+  if has "$urssi" || has "$ecio" || has "$rscp"; then
+    # this modem reports RSSI + Ec/Io on 3G; RSCP usually absent
+    local extra=""
+    has "$rscp" && extra=" | RSCP $(rate "$rscp" -85 -100 dBm)"
+    printf '  %-12s RSSI %s | Ec/Io %s%s\n' "3G signal:" \
+      "$(rate "$urssi" -75 -95 dBm)" "$(rate "$ecio" -6 -12 dB)" "$extra"
+    shown=1
+  fi
+  [ "$shown" -eq 0 ] && printf '  %-12s %s\n' "Signal:" "$(missing)"
+
+  local ip
+  ip=$(ip -4 -br addr show wwan0 2>/dev/null | awk '{print $3}')
+  printf '  %-12s %s\n' "IP (wwan0):" "${ip:-$(missing)}"
+  printf '  %-12s %s\n' "Mode:" "${modes:-$(missing)}"
+
+  if [ "$PING" -eq 1 ]; then
+    local p
+    p=$(ping -c3 -W3 -I wwan0 1.1.1.1 2>/dev/null | tail -2)
+    if printf '%s' "$p" | grep -q " 0% packet loss"; then
+      printf '  %-12s %s\n' "Ping:" "${G}$(printf '%s\n' "$p" | tail -1 | awk -F'= ' '{print "ok, rtt min/avg/max/mdev = "$2}')${N}"
+    else
+      printf '  %-12s %s\n' "Ping:" "${R}$(printf '%s\n' "$p" | head -1)${N}"
+    fi
+  fi
+}
+
+if [ "$WATCH" -eq 1 ]; then
+  while true; do out=$(show); clear; printf '%s\n' "$out"; echo; echo "(refresh 5 s, Ctrl-C to quit)"; sleep 5; done
+else
+  show
+fi

@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: EUPL-1.2
+// dongie: allow the dongie service user exactly what the dashboard needs.
+polkit.addRule(function(action, subject) {
+    if (subject.user !== "dongie") {
+        return polkit.Result.NOT_HANDLED;
+    }
+    switch (action.id) {
+    case "org.freedesktop.ModemManager1.Messaging":           // read/send/delete SMS
+    case "org.freedesktop.NetworkManager.network-control":    // hotspot on/off, LTE reconnect
+    case "org.freedesktop.NetworkManager.enable-disable-wifi":
+    case "org.freedesktop.NetworkManager.wifi.share.protected": // bring the WPA hotspot up
+    case "org.freedesktop.NetworkManager.wifi.share.open":
+    case "org.freedesktop.NetworkManager.settings.modify.system": // hotspot settings, client networks
+    case "org.freedesktop.NetworkManager.wifi.scan":
+    case "org.freedesktop.login1.reboot":                     // reboot button
+    case "org.freedesktop.login1.reboot-multiple-sessions":
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});
