@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: EUPL-1.2
+[Unit]
+Description=Reticulum daemon (Leviculum lnsd), storage in RAM only
+Documentation=https://leviculum.network/docs/lnsd-quickstart.html
+After=network-online.target run-lnsd.mount
+Requires=run-lnsd.mount
+Wants=network-online.target
+
+[Service]
+User=lnsd
+Group=lnsd
+# paths, known destinations etc. live in /run/lnsd: a tmpfs capped at 12 MB
+# (run-lnsd.mount), relearned from the network after a reboot
+ExecStart=/usr/local/bin/lnsd --config /etc/lnsd --storage /run/lnsd --service
+Restart=always
+RestartSec=15
+# the process itself can't grow without bound either
+MemoryHigh=24M
+MemoryMax=40M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/run/lnsd
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+Nice=5
+# offline, lnsd warns once per reconnect attempt (backoff up to 60 s); cap it anyway
+LogRateLimitIntervalSec=10min
+LogRateLimitBurst=40
+
+[Install]
+WantedBy=multi-user.target

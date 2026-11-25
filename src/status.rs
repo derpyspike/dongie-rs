@@ -99,7 +99,8 @@ pub struct Detail {
     pub sensitive: bool,
 }
 
-const SENSITIVE: &[&str] = &["imei", "equipment-identifier", "device-identifier", "own-numbers", "imsi", "iccid", "eid"];
+const SENSITIVE: &[&str] =
+    &["imei", "equipment-identifier", "device-identifier", "own-numbers", "imsi", "iccid", "eid"];
 
 /// Turn `mmcli -K` output into a flat, human-ish list. `value[n]` entries are joined.
 pub fn details_from(group: &'static str, text: &str, strip: &[&str]) -> Vec<Detail> {
@@ -183,9 +184,18 @@ pub struct Freq {
 /// LTE downlink EARFCN -> band number (bands this modem / EU networks use)
 pub fn earfcn_band(n: u32) -> Option<u32> {
     const T: &[(u32, u32, u32)] = &[
-        (1, 0, 599), (2, 600, 1199), (3, 1200, 1949), (4, 1950, 2399), (5, 2400, 2649),
-        (7, 2750, 3449), (8, 3450, 3799), (20, 6150, 6449), (28, 9210, 9659),
-        (38, 37750, 38249), (40, 38650, 39649), (41, 39650, 41589),
+        (1, 0, 599),
+        (2, 600, 1199),
+        (3, 1200, 1949),
+        (4, 1950, 2399),
+        (5, 2400, 2649),
+        (7, 2750, 3449),
+        (8, 3450, 3799),
+        (20, 6150, 6449),
+        (28, 9210, 9659),
+        (38, 37750, 38249),
+        (40, 38650, 39649),
+        (41, 39650, 41589),
     ];
     T.iter().find(|(_, a, b)| (*a..=*b).contains(&n)).map(|x| x.0)
 }
@@ -365,6 +375,17 @@ pub struct Tailscale {
 pub struct Service {
     pub name: String,
     pub state: String,
+    /// cgroup memory (systemd MemoryCurrent), bytes
+    pub memory: Option<u64>,
+    /// cgroup CPU time (CPUUsageNSec), and % of one core since the last poll
+    pub cpu_nsec: Option<u64>,
+    pub cpu_pct: Option<f64>,
+    /// IP traffic (IPIngressBytes / IPEgressBytes; needs IPAccounting=yes on the
+    /// unit), totals since the unit started and bytes/s since the last poll
+    pub ip_in: Option<u64>,
+    pub ip_out: Option<u64>,
+    pub in_bps: Option<f64>,
+    pub out_bps: Option<f64>,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -408,7 +429,12 @@ pub struct Collector {
 fn sample(st: &Status, flash_kib_min: Option<f64>) -> crate::history::Sample {
     let l = &st.lte;
     let tmax = |pred: &dyn Fn(&str) -> bool| {
-        st.system.temps.iter().filter(|t| pred(&t.0)).map(|t| t.1).fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.max(x))))
+        st.system
+            .temps
+            .iter()
+            .filter(|t| pred(&t.0))
+            .map(|t| t.1)
+            .fold(None, |a: Option<f64>, x| Some(a.map_or(x, |a| a.max(x))))
     };
     crate::history::Sample {
         t: st.updated,
@@ -425,7 +451,9 @@ fn sample(st: &Status, flash_kib_min: Option<f64>) -> crate::history::Sample {
         temp_modem: tmax(&|n| n == "modem"),
         flash_kib_min,
         mem_used_pct: (st.system.mem_total_kb > 0).then(|| {
-            ((st.system.mem_total_kb - st.system.mem_available_kb) as f64 / st.system.mem_total_kb as f64 * 1000.0).round() / 10.0
+            ((st.system.mem_total_kb - st.system.mem_available_kb) as f64 / st.system.mem_total_kb as f64 * 1000.0)
+                .round()
+                / 10.0
         }),
     }
 }
@@ -448,7 +476,7 @@ impl Collector {
             *self.status.write().await = st;
             tick += 1;
             // usage.json: every ~10 min (flash wear); also saved on SIGTERM
-            if tick % (600 / self.cfg.poll_secs.max(3)).max(1) == 0 {
+            if tick.is_multiple_of((600 / self.cfg.poll_secs.max(3)).max(1)) {
                 self.usage.lock().await.save_if_dirty();
             }
             tokio::time::sleep(std::time::Duration::from_secs(self.cfg.poll_secs.max(3))).await;
@@ -456,28 +484,24 @@ impl Collector {
     }
 
     async fn collect(&self) -> Status {
+        let unit_names = service_list(&self.cfg);
         let (system, lte, hotspot, tailscale, services, wifi) = tokio::join!(
             system(),
             self.lte(),
             self.hotspot(),
             tailscale(),
-            services(&self.cfg.services),
+            services(&unit_names),
             crate::wifi::collect(&self.cfg.hotspot_connection),
         );
         let ims = crate::ims::status(&self.cfg.ims_socket).await;
         let usage = self.usage_view().await;
-        Status {
-            updated: cmd::now(),
-            system,
-            lte,
-            hotspot,
-            tailscale,
-            usage,
-            wifi,
-            services,
-            leds: leds(),
-            ims,
+        let mut services = services;
+        let now = cmd::now();
+        {
+            let prev = self.status.read().await;
+            with_rates(&mut services, &prev.services, now.saturating_sub(prev.updated) as f64);
         }
+        Status { updated: now, system, lte, hotspot, tailscale, usage, wifi, services, leds: leds(), ims }
     }
 
     async fn qmi(&self, flag: &str) -> Option<String> {
@@ -504,14 +528,15 @@ impl Collector {
 
     async fn lte(&self) -> Lte {
         let mut l = Lte::default();
-        let apn_args = ["-t", "-g", "gsm.apn", "con", "show", self.cfg.lte_connection.as_str()];
+        let conn = cmd::active_gsm_connection().await.unwrap_or_else(|| self.cfg.lte_connection.clone());
+        let apn_of = async { crate::nm::shared().await.and_then(|s| s.by_id(&conn).and_then(|c| c.str("gsm", "apn"))) };
         let (mm, sim, sig, band, serving, apn, ip, cells) = tokio::join!(
             cmd::run("mmcli", &["-m", "any", "-K"]),
             cmd::run("mmcli", &["-i", "any", "-K"]),
             self.qmi("--nas-get-signal-info"),
             self.qmi("--nas-get-rf-band-info"),
             self.qmi("--nas-get-serving-system"),
-            cmd::run("nmcli", &apn_args),
+            apn_of,
             cmd::run("ip", &["-j", "-4", "addr", "show", "dev", "wwan0"]),
             self.qmi("--nas-get-cell-location-info"),
         );
@@ -520,7 +545,11 @@ impl Collector {
             details.extend(details_from("Modem", t, &["modem.generic.", "modem."]));
             if let Some(b) = kv(t).get("modem.generic.bearers.value[1]") {
                 if let Some(bt) = cmd::run("mmcli", &["-b", b, "-K"]).await {
-                    details.extend(details_from("Data connection", &bt, &["bearer.stats.", "bearer.status.", "bearer.properties.", "bearer."]));
+                    details.extend(details_from(
+                        "Data connection",
+                        &bt,
+                        &["bearer.stats.", "bearer.status.", "bearer.properties.", "bearer."],
+                    ));
                 }
             }
         }
@@ -596,35 +625,23 @@ impl Collector {
 
     async fn hotspot(&self) -> Hotspot {
         let mut h = Hotspot::default();
-        let nm_args = [
-            "-t",
-            "-f",
-            "GENERAL.STATE,802-11-wireless.ssid,802-11-wireless.band,ipv4.addresses",
-            "con",
-            "show",
-            self.cfg.hotspot_connection.as_str(),
-        ];
         let (nm, info, dump, leases) = tokio::join!(
-            cmd::run("nmcli", &nm_args),
+            crate::nm::shared(),
             cmd::run("/usr/sbin/iw", &["dev", "wlan0", "info"]),
             cmd::run("/usr/sbin/iw", &["dev", "wlan0", "station", "dump"]),
             cmd::sudo(&["/usr/bin/cat", "/var/lib/NetworkManager/dnsmasq-wlan0.leases"]),
         );
-        if let Some(t) = nm {
-            for line in t.lines() {
-                if let Some((k, v)) = line.split_once(':') {
-                    let v = v.trim();
-                    match k {
-                        "GENERAL.STATE" => h.active = v == "activated",
-                        "802-11-wireless.ssid" if !v.is_empty() => h.ssid = Some(v.into()),
-                        "802-11-wireless.band" if !v.is_empty() => {
-                            h.band = Some(if v == "bg" { "2.4 GHz".into() } else { v.into() })
-                        }
-                        "ipv4.addresses" if !v.is_empty() => h.address = Some(v.into()),
-                        _ => {}
-                    }
+        if let Some(c) = nm.as_ref().and_then(|s| s.by_id(&self.cfg.hotspot_connection)) {
+            h.active = c.activated();
+            h.ssid = c.ssid();
+            h.band = c.str("802-11-wireless", "band").filter(|v| !v.is_empty()).map(|v| {
+                if v == "bg" {
+                    "2.4 GHz".into()
+                } else {
+                    v
                 }
-            }
+            });
+            h.address = Some(c.ipv4_addresses().join(", ")).filter(|v| !v.is_empty());
         }
         if h.active {
             if let Some(t) = info {
@@ -659,30 +676,20 @@ impl Collector {
 }
 
 fn qv_plain(t: &str, label: &str) -> Option<u64> {
-    t.lines()
-        .find(|l| l.contains(label))
-        .and_then(|l| l.split(':').nth(1))
-        .and_then(|v| v.trim().parse().ok())
+    t.lines().find(|l| l.contains(label)).and_then(|l| l.split(':').nth(1)).and_then(|v| v.trim().parse().ok())
 }
 
 pub fn first_ipv4(json: &str) -> Option<String> {
     let v: serde_json::Value = serde_json::from_str(json).ok()?;
     let a = v.get(0)?.get("addr_info")?.get(0)?;
-    Some(format!(
-        "{}/{}",
-        a.get("local")?.as_str()?,
-        a.get("prefixlen")?.as_u64()?
-    ))
+    Some(format!("{}/{}", a.get("local")?.as_str()?, a.get("prefixlen")?.as_u64()?))
 }
 
 fn parse_stations(t: &str) -> Vec<Client> {
     let mut out: Vec<Client> = vec![];
     for line in t.lines() {
         if let Some(r) = line.strip_prefix("Station ") {
-            out.push(Client {
-                mac: r.split_whitespace().next().unwrap_or("").to_string(),
-                ..Default::default()
-            });
+            out.push(Client { mac: r.split_whitespace().next().unwrap_or("").to_string(), ..Default::default() });
             continue;
         }
         let Some(c) = out.last_mut() else { continue };
@@ -703,7 +710,7 @@ fn parse_stations(t: &str) -> Vec<Client> {
 
 async fn tailscale() -> Tailscale {
     let mut ts = Tailscale::default();
-    let Some(j) = cmd::run("tailscale", &["status", "--json"]).await else {
+    let Some(j) = cmd::tailscale("status?peers=false", &["status", "--json", "--peers=false"]).await else {
         ts.state = Some("unavailable".into());
         return ts;
     };
@@ -724,27 +731,106 @@ async fn tailscale() -> Tailscale {
     ts
 }
 
+/// The configured units, plus the Reticulum daemon when the Reticulum tab is
+/// active (so it shows up without editing `services`, and nowhere else).
+fn service_list(cfg: &crate::config::Config) -> Vec<String> {
+    let mut v = cfg.services.clone();
+    // dongie itself always shows up, first
+    if !v.iter().any(|s| s == "dongie" || s == "dongie.service") {
+        v.insert(0, "dongie".to_string());
+    }
+    if crate::reticulum::available(cfg) && !v.iter().any(|s| s == &cfg.lnsd_unit) {
+        v.push(cfg.lnsd_unit.clone());
+    }
+    if crate::mesh::available(cfg) && !v.iter().any(|s| s == &cfg.muxtastic_unit) {
+        v.push(cfg.muxtastic_unit.clone());
+    }
+    v
+}
+
 async fn services(names: &[String]) -> Vec<Service> {
-    let mut args = vec!["is-active"];
+    if names.is_empty() {
+        return vec![];
+    }
+    let mut args = vec![
+        "show",
+        "-p",
+        "ActiveState",
+        "-p",
+        "MemoryCurrent",
+        "-p",
+        "CPUUsageNSec",
+        "-p",
+        "IPIngressBytes",
+        "-p",
+        "IPEgressBytes",
+    ];
     args.extend(names.iter().map(|s| s.as_str()));
     let out = cmd::run_any("systemctl", &args).await.map(|o| o.1).unwrap_or_default();
-    let states: Vec<&str> = out.lines().collect();
+    parse_show(&out, names)
+}
+
+/// `systemctl show -p … unit…`: one block per unit, in argument order, blocks
+/// separated by an empty line. "[not set]" / "[no data]" -> None.
+fn parse_show(out: &str, names: &[String]) -> Vec<Service> {
+    let blocks: Vec<&str> = out.split("\n\n").collect();
     names
         .iter()
         .enumerate()
-        .map(|(i, n)| Service {
-            name: n.clone(),
-            state: states.get(i).copied().unwrap_or("unknown").to_string(),
+        .map(|(i, n)| {
+            let b = blocks.get(i).copied().unwrap_or("");
+            let get = |k: &str| b.lines().find_map(|l| l.strip_prefix(k)?.strip_prefix('='));
+            let num = |k: &str| get(k).and_then(|v| v.trim().parse::<u64>().ok());
+            Service {
+                name: n.clone(),
+                state: get("ActiveState").unwrap_or("unknown").to_string(),
+                memory: num("MemoryCurrent"),
+                cpu_nsec: num("CPUUsageNSec"),
+                ip_in: num("IPIngressBytes"),
+                ip_out: num("IPEgressBytes"),
+                ..Default::default()
+            }
         })
         .collect()
+}
+
+/// CPU % and traffic rates from the previous poll (`dt` seconds ago). A counter
+/// that went backwards (unit restarted) gives no rate this round.
+fn with_rates(new: &mut [Service], old: &[Service], dt: f64) {
+    if dt <= 0.0 {
+        return;
+    }
+    let rate = |a: Option<u64>, b: Option<u64>| match (a, b) {
+        (Some(a), Some(b)) if a >= b => Some((a - b) as f64 / dt),
+        _ => None,
+    };
+    for s in new.iter_mut() {
+        if let Some(o) = old.iter().find(|o| o.name == s.name) {
+            s.cpu_pct = rate(s.cpu_nsec, o.cpu_nsec).map(|ns| ns / 1e9 * 100.0);
+            s.in_bps = rate(s.ip_in, o.ip_in);
+            s.out_bps = rate(s.ip_out, o.ip_out);
+        }
+    }
 }
 
 fn read(p: &str) -> Option<String> {
     std::fs::read_to_string(p).ok().map(|s| s.trim_matches(|c: char| c.is_whitespace() || c == '\0').to_string())
 }
 
+/// Board LEDs from /sys/class/leds (UZ801: blue:wan, green:wlan, red:power;
+/// other boards have other names, some only a label like "green"). Skips
+/// storage/input activity LEDs (mmc0::, input3::capslock).
+fn led_names(dir: &str) -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(dir)
+        .map(|d| d.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect())
+        .unwrap_or_default();
+    v.retain(|n| !n.contains("::") && !n.starts_with("mmc") && !n.starts_with("input"));
+    v.sort();
+    v
+}
+
 fn leds() -> Vec<Led> {
-    ["blue:wan", "green:wlan", "red:power"]
+    led_names("/sys/class/leds")
         .iter()
         .map(|n| {
             let base = format!("/sys/class/leds/{n}");
@@ -756,7 +842,7 @@ fn leds() -> Vec<Led> {
                     Some(t[a + 1..a + b].to_string())
                 })
                 .unwrap_or_default();
-            Led { name: n.to_string(), on, trigger: trig }
+            Led { name: n.clone(), on, trigger: trig }
         })
         .collect()
 }
@@ -787,12 +873,7 @@ async fn system() -> System {
         .and_then(|v| v.parse::<u64>().ok())
         .map(|khz| khz / 1000);
     if let Some(m) = read("/proc/meminfo") {
-        let get = |k: &str| {
-            m.lines()
-                .find(|l| l.starts_with(k))
-                .and_then(|l| num(&l[k.len()..]))
-                .unwrap_or(0.0) as u64
-        };
+        let get = |k: &str| m.lines().find(|l| l.starts_with(k)).and_then(|l| num(&l[k.len()..])).unwrap_or(0.0) as u64;
         s.mem_total_kb = get("MemTotal:");
         s.mem_available_kb = get("MemAvailable:");
         s.swap_total_kb = get("SwapTotal:");
@@ -830,6 +911,70 @@ async fn system() -> System {
         s.temps = temps;
     }
     s
+}
+
+#[cfg(test)]
+mod service_stats_tests {
+    use super::*;
+
+    #[test]
+    fn show_output_and_rates() {
+        let names = vec!["lnsd".to_string(), "ssh".to_string(), "gone".to_string()];
+        let out = "ActiveState=active\nMemoryCurrent=14704640\nCPUUsageNSec=51048308000\nIPIngressBytes=38855\nIPEgressBytes=8488\n\n\
+                   ActiveState=active\nMemoryCurrent=7565312\nCPUUsageNSec=15197986000\nIPIngressBytes=[no data]\nIPEgressBytes=[no data]\n\n\
+                   ActiveState=inactive\nMemoryCurrent=[not set]\nCPUUsageNSec=[not set]\nIPIngressBytes=[no data]\nIPEgressBytes=[no data]\n";
+        let old = parse_show(out, &names);
+        assert_eq!(old[0].memory, Some(14704640));
+        assert_eq!(old[1].ip_in, None);
+        assert_eq!((old[2].state.as_str(), old[2].memory), ("inactive", None));
+        let out2 = out.replace("51048308000", "52048308000").replace("38855", "48855");
+        let mut new = parse_show(&out2, &names);
+        with_rates(&mut new, &old, 10.0);
+        assert!((new[0].cpu_pct.unwrap() - 10.0).abs() < 1e-9); // 1 s CPU in 10 s = 10 %
+        assert_eq!(new[0].in_bps, Some(1000.0));
+        assert_eq!(new[0].out_bps, Some(0.0));
+        assert_eq!(new[1].in_bps, None);
+        // restart: counter went down -> no rate
+        let mut again = parse_show(out, &names);
+        with_rates(&mut again, &new, 10.0);
+        assert_eq!(again[0].cpu_pct, None);
+    }
+}
+
+#[cfg(test)]
+mod service_list_tests {
+    #[test]
+    fn lnsd_added_only_when_reticulum_is_set_up() {
+        let mut cfg = crate::config::Config { services: vec!["ssh".into()], ..Default::default() };
+        cfg.lnstatus = "/nonexistent/lnstatus".into();
+        assert_eq!(super::service_list(&cfg), ["dongie", "ssh"]);
+        cfg.lnstatus = std::env::current_exe().unwrap().to_string_lossy().into_owned(); // any existing file
+        assert_eq!(super::service_list(&cfg), ["dongie", "ssh", "lnsd"]);
+        cfg.services.push("lnsd".into());
+        assert_eq!(super::service_list(&cfg), ["dongie", "ssh", "lnsd"]); // no duplicate
+        cfg.lnsd_unit.clear();
+        assert_eq!(super::service_list(&cfg), ["dongie", "ssh", "lnsd"]);
+    }
+
+    #[test]
+    fn dongie_listed_once() {
+        let cfg = crate::config::Config { services: vec!["ssh".into(), "dongie.service".into()], ..Default::default() };
+        assert_eq!(super::service_list(&cfg), ["ssh", "dongie.service"]);
+    }
+}
+
+#[cfg(test)]
+mod led_tests {
+    #[test]
+    fn led_names_skip_activity_leds() {
+        let d = std::env::temp_dir().join(format!("dongie-leds-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        for n in ["red:power", "green:wlan", "blue:wan", "mmc0::", "input3::capslock", "green"] {
+            std::fs::create_dir_all(d.join(n)).unwrap();
+        }
+        assert_eq!(super::led_names(d.to_str().unwrap()), ["blue:wan", "green", "green:wlan", "red:power"]);
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }
 
 #[cfg(test)]

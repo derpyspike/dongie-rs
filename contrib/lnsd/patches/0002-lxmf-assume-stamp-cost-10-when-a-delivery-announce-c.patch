@@ -1,0 +1,88 @@
+From e80c3d7bd0542cfc1212e684272181c1cf6da5b9 Mon Sep 17 00:00:00 2001
+From: derpyspike <67692052+derpyspike@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 13:01:57 +0100
+Subject: [PATCH 2/2] lxmf: assume stamp cost 10 when a delivery announce can't
+ be decoded
+
+If a peer's lxmf.delivery app data doesn't decode, its stamp cost was
+simply unknown and messages went out unstamped; a recipient that wants
+stamps proves receipt and then drops them ("Delivered", never shown).
+Now an unreadable non-empty app data records stamp cost 10 (satisfies
+any requirement up to 10) and no compression.
+
+Tested end to end against Python LXMF with enforce_stamps and a broken
+announce: old lnmsg "Delivered" but dropped; new lnmsg accepted
+(stamp value 12 on x86); from a UZ801 (aarch64) over a real transport
+node: accepted with stamp value 10.16, whole send 761 ms.
+
+Local patch for dongie.
+---
+ leviculum-lxmf/src/router.rs | 34 +++++++++++++++++++++++++++-------
+ 1 file changed, 27 insertions(+), 7 deletions(-)
+
+diff --git a/leviculum-lxmf/src/router.rs b/leviculum-lxmf/src/router.rs
+index 1dd2a500..eeb29390 100644
+--- a/leviculum-lxmf/src/router.rs
++++ b/leviculum-lxmf/src/router.rs
+@@ -40,6 +40,10 @@ mod stamp_runtime;
+ use outbound::BuildEpochs;
+ pub use outbound::OutboundEntry;
+ use propagation_runtime::PropagationRuntime;
++/// Stamp cost assumed for a peer whose delivery announce app data can't be
++/// decoded (see `handle_event`). 10 satisfies recipients asking for up to 10;
++/// each step doubles the work (local dongie patch).
++pub const UNREADABLE_ANNOUNCE_STAMP_COST: u8 = 10;
+ pub use propagation_runtime::{
+     PropagationClientConfig, PropagationClientState, PropagationPathAttempts,
+     PropagationSyncResult, PropagationSyncStatus,
+@@ -98,6 +102,7 @@ pub enum MessageState {
+ }
+ 
+ #[derive(Debug, Clone)]
++
+ pub struct RouterConfig {
+     pub max_outbound: usize,
+     pub max_delivered_ids: usize,
+@@ -1280,17 +1285,32 @@ impl LxmfRouter {
+             if announce.name_hash() == &Destination::compute_name_hash(APP_NAME, &[DELIVERY_ASPECT])
+             {
+                 let data = announce.app_data();
+-                if let Ok(decoded) = DeliveryAnnounce::decode(data) {
+-                    if !data.is_empty() {
++                match DeliveryAnnounce::decode(data) {
++                    Ok(decoded) => {
++                        if !data.is_empty() {
++                            self.insert_bounded_stamp_cost(
++                                announce.destination_hash().into_bytes(),
++                                (now_unix, decoded.stamp_cost, decoded.compression_supported),
++                            );
++                        }
++                        output.events.push(RouterEvent::PeerAnnounced {
++                            destination: *announce.destination_hash(),
++                            announce: decoded,
++                        });
++                    }
++                    // App data we can't read may well carry a stamp cost (a
++                    // client with a newer format). Without one our messages go
++                    // out unstamped, and a recipient that wants stamps proves
++                    // receipt and then drops them. Assume a cost instead: a
++                    // stamp of this value also satisfies any lower requirement.
++                    // No compression, since support is unknown too. (dongie)
++                    Err(_) if !data.is_empty() => {
+                         self.insert_bounded_stamp_cost(
+                             announce.destination_hash().into_bytes(),
+-                            (now_unix, decoded.stamp_cost, decoded.compression_supported),
++                            (now_unix, Some(UNREADABLE_ANNOUNCE_STAMP_COST), false),
+                         );
+                     }
+-                    output.events.push(RouterEvent::PeerAnnounced {
+-                        destination: *announce.destination_hash(),
+-                        announce: decoded,
+-                    });
++                    Err(_) => {}
+                 }
+             }
+         }
+-- 
+2.54.0
+

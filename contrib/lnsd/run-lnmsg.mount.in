@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: EUPL-1.2
+[Unit]
+Description=RAM-only state for lnmsg (used by dongie's LXMF notifications), capped at 2 MB
+
+[Mount]
+What=tmpfs
+Where=/run/lnmsg
+Type=tmpfs
+Options=size=2M,nr_inodes=1024,mode=0700,uid=@UID@,gid=@GID@,nosuid,nodev,noexec
+
+[Install]
+WantedBy=multi-user.target

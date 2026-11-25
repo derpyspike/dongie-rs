@@ -51,6 +51,8 @@ pub struct Wg {
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct WgPeer {
+    /// dongie's label (connection user data), "" if none
+    pub name: String,
     pub public_key: String,
     pub endpoint: Option<String>,
     pub allowed_ips: String,
@@ -163,7 +165,12 @@ async fn wireguard() -> Vec<Wg> {
     for line in list.unwrap_or_default().lines() {
         let f = crate::wifi::split_t(line);
         if f.len() >= 4 && f[1] == "wireguard" {
-            out.push(Wg { name: f[0].clone(), active: f[2] == "yes", autoconnect: f[3] == "yes", ..Default::default() });
+            out.push(Wg {
+                name: f[0].clone(),
+                active: f[2] == "yes",
+                autoconnect: f[3] == "yes",
+                ..Default::default()
+            });
         }
     }
     for line in dump.unwrap_or_default().lines() {
@@ -177,6 +184,7 @@ async fn wireguard() -> Vec<Wg> {
             }
             // peer: name, public-key, preshared-key, endpoint, allowed-ips, handshake, rx, tx, keepalive
             9 => w.peers.push(WgPeer {
+                name: String::new(),
                 public_key: f[1].to_string(),
                 endpoint: (f[3] != "(none)").then(|| f[3].to_string()),
                 allowed_ips: f[4].to_string(),
@@ -187,7 +195,32 @@ async fn wireguard() -> Vec<Wg> {
             _ => {}
         }
     }
+    for w in out.iter_mut() {
+        let names = crate::wgedit::peer_names(&w.name).await;
+        for p in w.peers.iter_mut() {
+            if let Some(n) = names.get(&p.public_key) {
+                p.name = n.clone();
+            }
+        }
+    }
     out
+}
+
+/// `collect()` shared by all open tabs for a few seconds (it runs a dozen
+/// commands); `fresh` skips the cache, e.g. right after a change.
+pub async fn collect_cached(fresh: bool) -> Net {
+    static CACHE: tokio::sync::Mutex<Option<(std::time::Instant, Net)>> = tokio::sync::Mutex::const_new(None);
+    let mut c = CACHE.lock().await; // also makes concurrent tabs wait for one collect instead of running their own
+    if !fresh {
+        if let Some((at, n)) = c.as_ref() {
+            if at.elapsed() < std::time::Duration::from_secs(8) {
+                return n.clone();
+            }
+        }
+    }
+    let n = collect().await;
+    *c = Some((std::time::Instant::now(), n.clone()));
+    n
 }
 
 pub async fn collect() -> Net {
@@ -195,8 +228,8 @@ pub async fn collect() -> Net {
         interfaces(),
         routes(),
         wireguard(),
-        cmd::run("tailscale", &["status", "--json"]),
-        cmd::run("tailscale", &["debug", "prefs"]),
+        cmd::tailscale("status", &["status", "--json"]),
+        cmd::tailscale("prefs", &["debug", "prefs"]),
     );
     let mut n = Net { interfaces, routes, wireguard, dns: dns(), ..Default::default() };
     if let Some(v) = ts.and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok()) {
@@ -248,7 +281,10 @@ async fn run_checked(prog: &str, args: &[&str], secs: u64) -> Result<String, Str
 
 pub fn valid_wg_name(n: &str) -> bool {
     let b = n.as_bytes();
-    !b.is_empty() && b.len() <= 15 && b[0].is_ascii_lowercase() && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_' || *c == b'-')
+    !b.is_empty()
+        && b.len() <= 15
+        && b[0].is_ascii_lowercase()
+        && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_' || *c == b'-')
 }
 
 /// Import a wg-quick style config as a NetworkManager connection.
@@ -257,7 +293,11 @@ pub async fn wg_import(name: &str, config: &str, route_all: bool, autoconnect: b
     if !valid_wg_name(name) {
         return Err("name: 1-15 chars, a-z 0-9 - _, starting with a letter".into());
     }
-    if config.len() > 16_000 || !config.contains("[Interface]") || !config.contains("PrivateKey") || !config.contains("[Peer]") {
+    if config.len() > 16_000
+        || !config.contains("[Interface]")
+        || !config.contains("PrivateKey")
+        || !config.contains("[Peer]")
+    {
         return Err("doesn't look like a WireGuard config ([Interface] with PrivateKey + [Peer])".into());
     }
     if wireguard().await.iter().any(|w| w.name == name) {
@@ -267,14 +307,20 @@ pub async fn wg_import(name: &str, config: &str, route_all: bool, autoconnect: b
     let mut rnd = [0u8; 8];
     use argon2::password_hash::rand_core::{OsRng, RngCore};
     OsRng.fill_bytes(&mut rnd);
-    let dir = std::env::temp_dir().join(format!("dongie-wg-{}", rnd.iter().map(|b| format!("{b:02x}")).collect::<String>()));
+    let dir =
+        std::env::temp_dir().join(format!("dongie-wg-{}", rnd.iter().map(|b| format!("{b:02x}")).collect::<String>()));
     let path = dir.join(format!("{name}.conf"));
     let res = async {
         use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
         std::fs::DirBuilder::new().mode(0o700).create(&dir).map_err(|e| e.to_string())?;
         {
             use std::io::Write;
-            let mut f = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&path).map_err(|e| e.to_string())?;
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&path)
+                .map_err(|e| e.to_string())?;
             f.write_all(config.as_bytes()).map_err(|e| e.to_string())?;
         }
         let p = path.to_string_lossy().to_string();
@@ -319,7 +365,9 @@ pub async fn wg_action(name: &str, action: &str) -> Result<String, String> {
         "delete" => run_checked("nmcli", &["con", "delete", name], 20).await.map(|_| format!("{name} deleted")),
         "autoconnect-on" | "autoconnect-off" => {
             let v = if action == "autoconnect-on" { "yes" } else { "no" };
-            run_checked("nmcli", &["con", "modify", name, "connection.autoconnect", v], 20).await.map(|_| format!("{name}: start at boot {v}"))
+            run_checked("nmcli", &["con", "modify", name, "connection.autoconnect", v], 20)
+                .await
+                .map(|_| format!("{name}: start at boot {v}"))
         }
         _ => Err("unknown action".into()),
     }
@@ -342,10 +390,11 @@ async fn ping(target: &str) -> TestResult {
             let loss = out.lines().find(|l| l.contains("packet loss")).unwrap_or("").to_string();
             let rtt = out.lines().find(|l| l.contains("min/avg/max"));
             if let Some(l) = rtt {
-                let nums: Vec<f64> = l.split('=').nth(1).unwrap_or("").split('/').filter_map(|x| cmd::num(x)).collect();
+                let nums: Vec<f64> = l.split('=').nth(1).unwrap_or("").split('/').filter_map(cmd::num).collect();
                 if nums.len() >= 3 {
                     r.ms = Some(nums[1]);
-                    r.detail = format!("{} · min {:.0} / avg {:.0} / max {:.0} ms", loss.trim(), nums[0], nums[1], nums[2]);
+                    r.detail =
+                        format!("{} · min {:.0} / avg {:.0} / max {:.0} ms", loss.trim(), nums[0], nums[1], nums[2]);
                 }
             }
             r.ok = rtt.is_some();
@@ -361,7 +410,9 @@ async fn ping(target: &str) -> TestResult {
 async fn timed<F: std::future::Future<Output = Result<String, String>>>(name: &str, f: F) -> TestResult {
     let t = Instant::now();
     match tokio::time::timeout(Duration::from_secs(10), f).await {
-        Ok(Ok(d)) => TestResult { name: name.into(), ok: true, detail: d, ms: Some(t.elapsed().as_secs_f64() * 1000.0) },
+        Ok(Ok(d)) => {
+            TestResult { name: name.into(), ok: true, detail: d, ms: Some(t.elapsed().as_secs_f64() * 1000.0) }
+        }
         Ok(Err(e)) => TestResult { name: name.into(), ok: false, detail: e, ms: None },
         Err(_) => TestResult { name: name.into(), ok: false, detail: "timed out after 10 s".into(), ms: None },
     }
@@ -376,7 +427,10 @@ pub async fn connectivity_test() -> Vec<TestResult> {
             Ok(a.first().map(|x| x.ip().to_string()).unwrap_or_default())
         }),
         timed("TCP connect 1.1.1.1:443", async {
-            tokio::net::TcpStream::connect("1.1.1.1:443").await.map(|_| "connected".to_string()).map_err(|e| e.to_string())
+            tokio::net::TcpStream::connect("1.1.1.1:443")
+                .await
+                .map(|_| "connected".to_string())
+                .map_err(|e| e.to_string())
         }),
     );
     vec![p1, p2, d, t]
@@ -389,7 +443,9 @@ mod tests {
     #[test]
     fn wg_names() {
         assert!(valid_wg_name("wg0") && valid_wg_name("home-vpn"));
-        assert!(!valid_wg_name("") && !valid_wg_name("0wg") && !valid_wg_name("Wg") && !valid_wg_name("a-very-long-name-x"));
+        assert!(
+            !valid_wg_name("") && !valid_wg_name("0wg") && !valid_wg_name("Wg") && !valid_wg_name("a-very-long-name-x")
+        );
         assert!(!valid_wg_name("wg0;rm"));
     }
 }

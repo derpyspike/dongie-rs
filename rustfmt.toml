@@ -1,0 +1,3 @@
+# matches the existing style; CI checks it with cargo fmt --check
+max_width = 120
+use_small_heuristics = "Max"

@@ -50,10 +50,8 @@ fn day_key(unix: u64) -> String {
 impl Usage {
     pub fn load(state_dir: &std::path::Path) -> Usage {
         let path = state_dir.join("usage.json");
-        let mut u: Usage = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        let mut u: Usage =
+            std::fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         u.path = path;
         u
     }
@@ -111,13 +109,7 @@ impl Usage {
                 v.month_tx += d[1];
             }
         }
-        v.history = self
-            .days
-            .iter()
-            .rev()
-            .take(31)
-            .map(|(k, d)| (k.clone(), d[0], d[1]))
-            .collect();
+        v.history = self.days.iter().rev().take(31).map(|(k, d)| (k.clone(), d[0], d[1])).collect();
         v.history.reverse();
         v
     }

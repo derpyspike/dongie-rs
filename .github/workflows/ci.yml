@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  TARGET: aarch64-unknown-linux-musl
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain (stable + aarch64-musl target)
+        run: |
+          rustup toolchain install stable --profile minimal -c clippy,rustfmt -t "$TARGET"
+          rustup default stable
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Tests
+        run: cargo test --locked
+
+      - name: Build for the stick (static aarch64)
+        run: cargo build --release --locked --target "$TARGET"
+
+      - name: Check the binary is static aarch64
+        run: |
+          f="target/$TARGET/release/dongie"
+          file "$f"
+          file "$f" | grep -q 'ARM aarch64' && file "$f" | grep -q 'statically linked'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dongie-aarch64-linux-musl
+          path: target/aarch64-unknown-linux-musl/release/dongie
+
+  release:
+    # tags are created (and signed) by hand; this attaches the binaries
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal -t "$TARGET"
+          rustup default stable
+
+      - name: Build
+        run: cargo build --release --locked --target "$TARGET"
+
+      - name: Package binary + complete source (vendored dependencies)
+        run: sh .github/package-release.sh "$GITHUB_REF_NAME" "target/$TARGET/release/dongie"
+
+      - name: Attach to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release view "$tag" >/dev/null 2>&1 || \
+            gh release create "$tag" --verify-tag --title "dongie-rs $tag" \
+              --notes "Static aarch64 binary for MSM8916 sticks, plus complete source with vendored dependencies. Check with SHA256SUMS."
+          gh release upload "$tag" dist/* --clobber

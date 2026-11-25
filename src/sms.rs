@@ -8,7 +8,7 @@
 //!   matched to our sent message by the message reference.
 
 use crate::cmd;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -48,6 +48,64 @@ pub struct Msg {
     pub via: &'static str,
 }
 
+/// On-flash form of a message (persist.rs); `Msg` itself uses static strings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SavedMsg {
+    pub id: u64,
+    pub dir: String,
+    pub number: String,
+    pub text: String,
+    pub timestamp: String,
+    pub stored_at: u64,
+    pub state: String,
+    pub msg_ref: Option<u32>,
+    pub error: Option<String>,
+    pub read: bool,
+    pub via: String,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct SavedStore {
+    pub next_id: u64,
+    pub msgs: Vec<SavedMsg>,
+}
+
+impl From<&Msg> for SavedMsg {
+    fn from(m: &Msg) -> Self {
+        SavedMsg {
+            id: m.id,
+            dir: m.dir.into(),
+            number: m.number.clone(),
+            text: m.text.clone(),
+            timestamp: m.timestamp.clone(),
+            stored_at: m.stored_at,
+            state: m.state.clone(),
+            msg_ref: m.msg_ref,
+            error: m.error.clone(),
+            read: m.read,
+            via: m.via.into(),
+        }
+    }
+}
+
+impl From<SavedMsg> for Msg {
+    fn from(m: SavedMsg) -> Self {
+        Msg {
+            id: m.id,
+            dir: if m.dir == "out" { "out" } else { "in" },
+            number: m.number,
+            text: m.text,
+            timestamp: m.timestamp,
+            stored_at: m.stored_at,
+            state: m.state,
+            msg_ref: m.msg_ref,
+            error: m.error,
+            read: m.read,
+            via: if m.via == "ims" { "ims" } else { "modem" },
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Store {
     pub msgs: Vec<Msg>,
@@ -55,6 +113,8 @@ pub struct Store {
     max: usize,
     /// delivery reports that arrived before we knew the message reference
     pending_reports: HashMap<u32, u32>,
+    /// notifications for incoming messages (see notify.rs)
+    pub events: Option<crate::notify::Sender>,
 }
 
 fn delivery_state(ds: u32) -> &'static str {
@@ -75,10 +135,15 @@ fn apply_report(m: &mut Msg, ds: u32) {
 
 impl Store {
     pub fn new(max: usize) -> Self {
-        Store { msgs: vec![], next_id: 1, max, pending_reports: HashMap::new() }
+        Store { msgs: vec![], next_id: 1, max, pending_reports: HashMap::new(), events: None }
     }
 
     fn push(&mut self, mut m: Msg) -> u64 {
+        if m.dir == "in" {
+            if let Some(tx) = &self.events {
+                let _ = tx.send(crate::notify::Event::Sms { from: m.number.clone(), text: m.text.clone(), via: m.via });
+            }
+        }
         m.id = self.next_id;
         self.next_id += 1;
         self.msgs.push(m);
@@ -90,9 +155,7 @@ impl Store {
     }
 
     fn has_incoming(&self, number: &str, ts: &str, text: &str) -> bool {
-        self.msgs
-            .iter()
-            .any(|m| m.dir == "in" && m.number == number && m.timestamp == ts && m.text == text)
+        self.msgs.iter().any(|m| m.dir == "in" && m.number == number && m.timestamp == ts && m.text == text)
     }
 
     /// Store an incoming message unless we already have it. Returns true if new.
@@ -114,6 +177,21 @@ impl Store {
             via,
         });
         true
+    }
+
+    /// For persist.rs: everything needed to rebuild the store.
+    pub fn snapshot(&self) -> SavedStore {
+        SavedStore { next_id: self.next_id, msgs: self.msgs.iter().map(SavedMsg::from).collect() }
+    }
+
+    pub fn restore(&mut self, s: SavedStore) {
+        self.msgs = s.msgs.into_iter().map(Msg::from).collect();
+        let max_id = self.msgs.iter().map(|m| m.id).max().unwrap_or(0);
+        self.next_id = s.next_id.max(max_id + 1);
+        if self.msgs.len() > self.max {
+            let extra = self.msgs.len() - self.max;
+            self.msgs.drain(..extra);
+        }
     }
 
     pub fn get_mut(&mut self, id: u64) -> Option<&mut Msg> {
@@ -161,11 +239,13 @@ pub fn rfc3339(t: u64) -> String {
 
 #[derive(Clone)]
 pub struct Sms {
-    conn: Connection,
+    pub(crate) conn: Connection,
     pub store: Arc<Mutex<Store>>,
+    /// one USSD session at a time (see ussd.rs)
+    pub(crate) ussd_lock: Arc<Mutex<()>>,
 }
 
-async fn proxy<'a>(conn: &'a Connection, path: &str, iface: &'static str) -> zbus::Result<Proxy<'a>> {
+pub(crate) async fn proxy<'a>(conn: &'a Connection, path: &str, iface: &'static str) -> zbus::Result<Proxy<'a>> {
     let p = ObjectPath::try_from(path.to_string())?;
     Builder::<Proxy>::new(conn)
         .destination(MM)?
@@ -179,15 +259,11 @@ async fn proxy<'a>(conn: &'a Connection, path: &str, iface: &'static str) -> zbu
 impl Sms {
     pub async fn connect(max: usize) -> zbus::Result<Sms> {
         let conn = Connection::system().await?;
-        Ok(Sms { conn, store: Arc::new(Mutex::new(Store::new(max))) })
+        Ok(Sms { conn, store: Arc::new(Mutex::new(Store::new(max))), ussd_lock: Arc::new(Mutex::new(())) })
     }
 
-    async fn modem_path(&self) -> zbus::Result<String> {
-        let om = zbus::fdo::ObjectManagerProxy::builder(&self.conn)
-            .destination(MM)?
-            .path(MM_PATH)?
-            .build()
-            .await?;
+    pub(crate) async fn modem_path(&self) -> zbus::Result<String> {
+        let om = zbus::fdo::ObjectManagerProxy::builder(&self.conn).destination(MM)?.path(MM_PATH)?.build().await?;
         let objs = om.get_managed_objects().await?;
         objs.keys()
             .map(|k| k.as_str().to_string())
@@ -254,12 +330,7 @@ impl Sms {
                     let ds: u32 = sms.get_property("DeliveryState").await.unwrap_or(0x100);
                     {
                         let mut st = self.store.lock().await;
-                        if let Some(m) = st
-                            .msgs
-                            .iter_mut()
-                            .rev()
-                            .find(|m| m.dir == "out" && m.msg_ref == Some(mref))
-                        {
+                        if let Some(m) = st.msgs.iter_mut().rev().find(|m| m.dir == "out" && m.msg_ref == Some(mref)) {
                             apply_report(m, ds);
                         } else {
                             // our Send() may not have returned the reference yet
@@ -352,6 +423,23 @@ mod tests {
         assert!(valid_number("+34600000001"));
         assert!(!valid_number("+34 650"));
         assert!(!valid_number("abc"));
+    }
+
+    #[test]
+    fn snapshot_restore_roundtrip() {
+        let mut a = Store::new(10);
+        a.push_incoming("+34600000001".into(), "hola".into(), "2026-11-25T08:00:00+00:00".into(), "ims");
+        a.push_incoming("+34600000002".into(), "adiós".into(), "2026-11-25T08:01:00+00:00".into(), "modem");
+        a.get_mut(1).unwrap().read = true;
+        let bytes = crate::blob::encode(&a.snapshot()).unwrap();
+        let mut b = Store::new(10);
+        b.restore(crate::blob::decode(&bytes).unwrap());
+        assert_eq!(b.snapshot().msgs, a.snapshot().msgs);
+        assert_eq!(b.msgs[0].via, "ims");
+        assert!(b.msgs[0].read);
+        // new messages continue after the restored ids
+        b.push_incoming("+34600000003".into(), "x".into(), "t".into(), "modem");
+        assert_eq!(b.msgs.last().unwrap().id, 3);
     }
 
     #[test]

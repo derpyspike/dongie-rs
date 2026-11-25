@@ -28,10 +28,16 @@ const COOKIE: &str = "dongie_session";
 #[derive(Clone)]
 pub struct App {
     pub cfg: Arc<Config>,
+    /// config.toml path (the Settings tab reads it to show what's overridden)
+    pub cfg_path: String,
+    /// notified to restart dongie (systemd starts it again) after a settings change
+    pub restart: Arc<tokio::sync::Notify>,
     pub status: Arc<RwLock<Status>>,
     pub history: Arc<tokio::sync::Mutex<crate::history::History>>,
     pub sms: Option<Sms>,
     pub ims: crate::ims::Ims,
+    pub netsel: crate::netsel::NetSel,
+    pub contacts: Arc<tokio::sync::RwLock<crate::contacts::Contacts>>,
     pub sessions: Arc<Sessions>,
     pub login_gate: Arc<tokio::sync::Mutex<()>>,
 }
@@ -73,6 +79,8 @@ fn csrf_ok(h: &HeaderMap) -> bool {
 }
 
 /// Admin + CSRF check for state-changing endpoints.
+// Response as the error is the usual axum pattern; boxing it everywhere only adds noise.
+#[allow(clippy::result_large_err)]
 fn require_admin(app: &App, h: &HeaderMap, mutating: bool) -> Result<String, Response> {
     if mutating && !csrf_ok(h) {
         return Err(err(StatusCode::FORBIDDEN, "missing X-Dongie header"));
@@ -101,16 +109,32 @@ pub fn web_router(app: App) -> Router {
         .route("/api/calls/{id}/reject", post(reject_call))
         .route("/api/calls/{id}/{op}", post(call_op))
         .route("/api/calls/dial", post(dial))
+        .route("/api/network", get(network_info))
+        .route("/api/network/select", post(network_select))
+        .route("/api/ussd/{op}", post(ussd))
+        .route("/api/settings", get(settings_get).post(settings_set))
+        .route("/api/settings/confirm", post(settings_confirm))
+        .route("/api/notify", get(notify_list))
+        .route("/api/reticulum", get(reticulum_info))
+        .route("/api/reticulum/restart", post(reticulum_restart))
+        .route("/api/mesh", get(mesh_info))
+        .route("/api/mesh/config", get(mesh_config_get).post(mesh_config_set))
+        .route("/api/mesh/service", post(mesh_service))
+        .route("/api/contacts", get(contacts_list).post(contacts_set))
+        .route("/api/notify/test", post(notify_test))
         .route("/api/action/{name}", post(action))
         .route("/api/wifi/hotspot", post(wifi_hotspot))
         .route("/api/wifi/scan", post(wifi_scan))
         .route("/api/net", get(net_info))
         .route("/api/wireguard/import", post(wg_import))
         .route("/api/wireguard/action", post(wg_action))
+        .route("/api/wireguard/config/{name}", get(wg_config_get).post(wg_config_set))
+        .route("/api/wireguard/create", post(wg_create))
         .route("/api/nettest", post(net_test))
         .route("/api/wifi/connect", post(wifi_connect))
         .route("/api/wifi/activate", post(wifi_activate))
         .route("/api/wifi/forget", post(wifi_forget))
+        .layer(axum::middleware::from_fn(crate::squeeze::layer))
         .with_state(app)
 }
 
@@ -141,6 +165,12 @@ async fn me(State(app): State<App>, h: HeaderMap) -> Response {
         "role": role,
         "anonymous_guest": app.cfg.anonymous_guest,
         "sms_available": app.sms.is_some(),
+        // fresh install: tell the login dialog how to create the first user
+        "no_users": users::load(&app.cfg.users_file).is_empty(),
+        "ussd": app.cfg.ussd,
+        "persist": app.cfg.persist,
+        "reticulum": crate::reticulum::available(&app.cfg),
+        "mesh": crate::mesh::available(&app.cfg),
         "version": env!("CARGO_PKG_VERSION"),
     }))
     .into_response()
@@ -175,11 +205,7 @@ async fn login(State(app): State<App>, h: HeaderMap, Json(req): Json<LoginReq>) 
     eprintln!("login ok: {} ({})", req.user, role.as_str());
     let t = app.sessions.create(&req.user, role);
     let cookie = format!("{COOKIE}={t}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800");
-    (
-        [(header::SET_COOKIE, cookie)],
-        Json(json!({ "user": req.user, "role": role.as_str() })),
-    )
-        .into_response()
+    ([(header::SET_COOKIE, cookie)], Json(json!({ "user": req.user, "role": role.as_str() }))).into_response()
 }
 
 async fn logout(State(app): State<App>, h: HeaderMap) -> Response {
@@ -241,6 +267,329 @@ async fn list_messages(app: &App) -> Response {
     Json(json!({ "unread": st.unread(), "messages": msgs })).into_response()
 }
 
+// ---------------- mobile network selection (admin) ----------------
+
+async fn network_info(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    Json(app.netsel.info().await).into_response()
+}
+
+#[derive(Deserialize)]
+struct SelectReq {
+    network: String,
+}
+
+/// GET /api/settings: editable settings, effective values (tokens hidden).
+async fn settings_get(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    let base = crate::settings::read_table(std::path::Path::new(&app.cfg_path)).unwrap_or_default();
+    Json(crate::settings::view(&app.cfg, &app.cfg.state_dir, &base)).into_response()
+}
+
+/// POST /api/settings {"changes": {key: value | null}}: validate, write
+/// settings.toml, restart. Listen-address changes must be confirmed afterwards.
+async fn settings_set(State(app): State<App>, h: HeaderMap, Json(req): Json<serde_json::Value>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let Some(changes) = req.get("changes").and_then(|c| c.as_object()) else {
+        return err(StatusCode::BAD_REQUEST, "expected {\"changes\": {...}}");
+    };
+    if crate::settings::pending_left(&app.cfg.state_dir).is_some() {
+        return err(StatusCode::CONFLICT, "confirm or wait out the pending listen-address change first");
+    }
+    match crate::settings::apply(&app.cfg_path, &app.cfg, changes) {
+        Ok(a) => {
+            let keys: Vec<&String> = changes.keys().collect();
+            eprintln!("settings: {user} changed {keys:?}{}", if a.risky { " (needs confirmation)" } else { "" });
+            let restart = app.restart.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                restart.notify_one();
+            });
+            Json(json!({ "ok": true, "restarting": true, "confirm_within": a.risky.then_some(crate::settings::CONFIRM_SECS) }))
+                .into_response()
+        }
+        Err(e) => err(StatusCode::BAD_REQUEST, &e),
+    }
+}
+
+/// POST /api/settings/confirm: keep a pending listen-address change.
+async fn settings_confirm(State(app): State<App>, h: HeaderMap) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let had = crate::settings::confirm(&app.cfg.state_dir);
+    if had {
+        eprintln!("settings: {user} confirmed the listen-address change");
+    }
+    Json(json!({ "ok": true, "was_pending": had })).into_response()
+}
+
+/// GET /api/contacts: admin only (names belong with the numbers admins see).
+async fn contacts_list(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    Json(json!({ "contacts": app.contacts.read().await.list })).into_response()
+}
+
+#[derive(Deserialize)]
+struct ContactReq {
+    number: String,
+    #[serde(default)]
+    name: String,
+}
+
+/// POST /api/contacts {number, name}: add or rename; empty name deletes.
+async fn contacts_set(State(app): State<App>, h: HeaderMap, Json(req): Json<ContactReq>) -> Response {
+    if let Err(r) = require_admin(&app, &h, true) {
+        return r;
+    }
+    match app.contacts.write().await.set(&req.number, &req.name) {
+        Ok(()) => Json(json!({ "ok": true })).into_response(),
+        Err(e) => err(StatusCode::BAD_REQUEST, &e),
+    }
+}
+
+/// GET /api/reticulum: daemon, interfaces, tables, storage, LXMF. Guests see it
+/// too, minus the recent notifications (target names and recipient addresses).
+async fn reticulum_info(State(app): State<App>, h: HeaderMap) -> Response {
+    let admin = match access(&app, &h) {
+        Access::Admin(_) => true,
+        Access::Guest(_) => false,
+        Access::Denied => return err(StatusCode::UNAUTHORIZED, "login required"),
+    };
+    if !crate::reticulum::available(&app.cfg) {
+        return err(StatusCode::NOT_FOUND, "no Reticulum daemon configured (lnsd_unit / lnstatus)");
+    }
+    let mut info = crate::reticulum::info(&app.cfg).await;
+    if !admin {
+        info["recent"] = json!([]);
+        info["lxmf"]["targets"] = json!(null);
+    }
+    Json(info).into_response()
+}
+
+/// GET /api/mesh: muxtastic's view of the Meshtastic node. Guests get the status,
+/// node list and totals; messages, positions and addresses are admin-only.
+async fn mesh_info(State(app): State<App>, h: HeaderMap) -> Response {
+    let admin = match access(&app, &h) {
+        Access::Admin(_) => true,
+        Access::Guest(_) => false,
+        Access::Denied => return err(StatusCode::UNAUTHORIZED, "login required"),
+    };
+    if !crate::mesh::available(&app.cfg) {
+        return err(StatusCode::NOT_FOUND, "no muxtastic configured (muxtastic_url / muxtastic_unit)");
+    }
+    Json(crate::mesh::info(&app.cfg, admin).await).into_response()
+}
+
+/// GET /api/mesh/config (admin): the muxtastic settings dongie can edit.
+async fn mesh_config_get(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    match crate::muxcfg::read(&app.cfg.muxtastic_config).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(StatusCode::NOT_FOUND, &e),
+    }
+}
+
+/// systemctl <verb> on muxtastic's unit (polkit: start/stop/restart of that unit only).
+async fn mux_unit(app: &App, verb: &str) -> Result<(), String> {
+    let unit = format!("{}.service", app.cfg.muxtastic_unit);
+    match crate::cmd::run_any_t("systemctl", &[verb, &unit], 30).await {
+        Some((true, _, _)) => Ok(()),
+        Some((false, _, e)) => Err(e.trim().chars().take(200).collect()),
+        None => Err("systemctl timed out".into()),
+    }
+}
+
+/// POST /api/mesh/config (admin): write the settings into muxtastic.toml
+/// (comments kept, old file as .bak) and restart muxtastic if it runs.
+async fn mesh_config_set(
+    State(app): State<App>,
+    h: HeaderMap,
+    Json(req): Json<crate::muxcfg::MuxSettings>,
+) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let view = match crate::muxcfg::write(&app.cfg.muxtastic_config, &req).await {
+        Ok(v) => v,
+        Err(e) => return err(StatusCode::BAD_REQUEST, &e),
+    };
+    eprintln!(
+        "mesh: {user} set muxtastic node {}:{}, admin from {:?}, history {} d",
+        req.node_host.trim(),
+        req.node_port,
+        req.allow_admin_from,
+        req.retention_days
+    );
+    let active = crate::cmd::run("systemctl", &["is-active", &app.cfg.muxtastic_unit]).await.is_some();
+    let restart = if active { Some(mux_unit(&app, "restart").await) } else { None };
+    Json(json!({
+        "config": view,
+        "restarted": matches!(restart, Some(Ok(()))),
+        "restart_error": restart.and_then(|r| r.err()),
+        "was_running": active,
+    }))
+    .into_response()
+}
+
+#[derive(Deserialize)]
+struct MeshServiceReq {
+    action: String,
+}
+
+/// POST /api/mesh/service (admin): {"action": "start" | "stop" | "restart"}
+async fn mesh_service(State(app): State<App>, h: HeaderMap, Json(req): Json<MeshServiceReq>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    if !matches!(req.action.as_str(), "start" | "stop" | "restart") {
+        return err(StatusCode::BAD_REQUEST, "action: start, stop or restart");
+    }
+    eprintln!("mesh: {user} {}s {}", req.action, app.cfg.muxtastic_unit);
+    match mux_unit(&app, &req.action).await {
+        Ok(()) => Json(json!({ "ok": true })).into_response(),
+        Err(e) => err(StatusCode::BAD_GATEWAY, &e),
+    }
+}
+
+/// POST /api/reticulum/restart: restart the daemon (polkit rule allows the
+/// dongie user exactly this unit). Paths are relearned afterwards.
+async fn reticulum_restart(State(app): State<App>, h: HeaderMap) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let unit = format!("{}.service", app.cfg.lnsd_unit);
+    eprintln!("reticulum: {user} restarts {unit}");
+    match crate::cmd::run_any_t("systemctl", &["restart", &unit], 30).await {
+        Some((true, _, _)) => Json(json!({ "ok": true })).into_response(),
+        Some((false, _, e)) => err(StatusCode::BAD_GATEWAY, e.trim()),
+        None => err(StatusCode::GATEWAY_TIMEOUT, "systemctl timed out"),
+    }
+}
+
+/// GET /api/notify: configured targets (labels only: no URLs, topics or tokens).
+async fn notify_list(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    let list: Vec<_> = app
+        .cfg
+        .notify
+        .iter()
+        .map(|t| {
+            json!({
+                "label": crate::notify::label(t),
+                "kind": t.kind,
+                "events": t.events,
+                "include_text": t.include_text,
+                "error": crate::notify::validate(t).err(),
+            })
+        })
+        .collect();
+    Json(json!({ "targets": list })).into_response()
+}
+
+/// POST /api/notify/test: send a test notification to every target, report each.
+async fn notify_test(
+    State(app): State<App>,
+    h: HeaderMap,
+    Query(q): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    eprintln!("notify: {user} sends a test notification");
+    let mut results = vec![];
+    // ?index=N tests one target, otherwise all
+    let only: Option<usize> = q.get("index").and_then(|i| i.parse().ok());
+    for (i, t) in app.cfg.notify.iter().enumerate() {
+        if only.is_some_and(|o| o != i) {
+            continue;
+        }
+        let r = match crate::notify::validate(t) {
+            Ok(()) => crate::notify::send(t, &crate::notify::Event::Test, None).await,
+            Err(e) => Err(e),
+        };
+        let (ok, detail, error) = match r {
+            Ok(d) => (true, d, None),
+            Err(e) => (false, String::new(), Some(e)),
+        };
+        results.push(json!({ "label": crate::notify::label(t), "ok": ok, "detail": detail, "error": error }));
+    }
+    Json(json!({ "results": results })).into_response()
+}
+
+#[derive(Deserialize)]
+struct UssdReq {
+    #[serde(default)]
+    code: String,
+    #[serde(default)]
+    text: String,
+}
+
+/// POST /api/ussd/{initiate|respond|cancel}: admin only (codes can change things).
+async fn ussd(State(app): State<App>, h: HeaderMap, Path(op): Path<String>, Json(req): Json<UssdReq>) -> Response {
+    use crate::ussd::{valid_code, valid_response, Op};
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    if !app.cfg.ussd {
+        return err(StatusCode::FORBIDDEN, "USSD is off (ussd = true in config.toml)");
+    }
+    let Some(sms) = &app.sms else {
+        return err(StatusCode::SERVICE_UNAVAILABLE, "ModemManager not available");
+    };
+    let (code, text) = (req.code.trim(), req.text.trim());
+    let op = match op.as_str() {
+        "initiate" if valid_code(code) => Op::Initiate(code),
+        "initiate" => return err(StatusCode::BAD_REQUEST, "code: digits, * # + (max 32)"),
+        "respond" if valid_response(text) => Op::Respond(text),
+        "respond" => return err(StatusCode::BAD_REQUEST, "text: 1-160 characters"),
+        "cancel" => Op::Cancel,
+        _ => return err(StatusCode::NOT_FOUND, "unknown USSD operation"),
+    };
+    // the code is logged, the reply not (it can contain the phone number or balance)
+    match &op {
+        Op::Initiate(c) => eprintln!("ussd: {user} sends {c}"),
+        Op::Respond(_) => eprintln!("ussd: {user} answers"),
+        Op::Cancel => eprintln!("ussd: {user} cancels"),
+    }
+    match sms.ussd(op).await {
+        Ok(r) => Json(r).into_response(),
+        Err(e) => err(StatusCode::BAD_GATEWAY, &e),
+    }
+}
+
+async fn network_select(State(app): State<App>, h: HeaderMap, Json(req): Json<SelectReq>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let net = req.network.trim().to_string();
+    eprintln!("netsel: {user} selects {}", if net.is_empty() { "automatic" } else { &net });
+    match app.netsel.select(net).await {
+        Ok(p) => (StatusCode::ACCEPTED, Json(json!({ "ok": true, "pending": p }))).into_response(),
+        Err(e) => err(StatusCode::BAD_REQUEST, &e),
+    }
+}
+
 // ---------------- calls (dongie-ims, admin) ----------------
 
 async fn calls(State(app): State<App>, h: HeaderMap) -> Response {
@@ -251,7 +600,8 @@ async fn calls(State(app): State<App>, h: HeaderMap) -> Response {
 }
 
 async fn list_calls(app: &App) -> Response {
-    let calls = app.ims.calls.lock().await.clone();
+    let live = app.ims.calls.lock().await.clone();
+    let calls = crate::ims::merged(&live, &app.ims.archive.lock().await);
     Json(json!({ "calls": calls })).into_response()
 }
 
@@ -374,7 +724,7 @@ async fn action(State(app): State<App>, h: HeaderMap, Path(name): Path<String>) 
         Err(r) => return r,
     };
     let hs = app.cfg.hotspot_connection.clone();
-    let lte = app.cfg.lte_connection.clone();
+    let lte = crate::cmd::active_gsm_connection().await.unwrap_or_else(|| app.cfg.lte_connection.clone());
     eprintln!("action {name} by {user}");
     match name.as_str() {
         "hotspot-on" | "hotspot-off" => {
@@ -392,8 +742,7 @@ async fn action(State(app): State<App>, h: HeaderMap, Path(name): Path<String>) 
                 let r = crate::cmd::run_any("nmcli", &["con", "up", &lte]).await;
                 eprintln!("lte-reconnect: {:?}", r.map(|x| x.0));
             });
-            (StatusCode::ACCEPTED, Json(json!({ "ok": true, "note": "reconnecting in background" })))
-                .into_response()
+            (StatusCode::ACCEPTED, Json(json!({ "ok": true, "note": "reconnecting in background" }))).into_response()
         }
         "reboot" => {
             tokio::spawn(async {
@@ -408,6 +757,77 @@ async fn action(State(app): State<App>, h: HeaderMap, Path(name): Path<String>) 
 }
 
 // ---------------- Wi-Fi (admin) ----------------
+
+/// GET /api/wireguard/config/{name}: interface + peers, secrets only as "set".
+async fn wg_config_get(State(app): State<App>, h: HeaderMap, Path(name): Path<String>) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    match crate::wgedit::view(&name).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(StatusCode::BAD_REQUEST, &e),
+    }
+}
+
+/// POST /api/wireguard/config/{name} {WgEdit}: save; an active tunnel is re-activated.
+async fn wg_config_set(
+    State(app): State<App>,
+    h: HeaderMap,
+    Path(name): Path<String>,
+    Json(req): Json<crate::wgedit::WgEdit>,
+) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    eprintln!(
+        "wireguard: {user} edits {name:?} ({} peers{})",
+        req.peers.len(),
+        match req.private_key.as_deref() {
+            Some("generate") => ", new key pair",
+            Some(_) => ", new private key",
+            None => "",
+        }
+    );
+    match crate::wgedit::apply(&name, &req).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => err(StatusCode::BAD_REQUEST, &e),
+    }
+}
+
+#[derive(Deserialize)]
+struct WgCreateReq {
+    name: String,
+    #[serde(flatten)]
+    edit: crate::wgedit::WgEdit,
+}
+
+/// POST /api/wireguard/create {name, …WgEdit}: new tunnel (own key pair unless
+/// one is given), not started, not at boot.
+async fn wg_create(State(app): State<App>, h: HeaderMap, Json(mut req): Json<WgCreateReq>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    if req.edit.private_key.is_none() {
+        req.edit.private_key = Some("generate".into());
+    }
+    if let Err(e) = crate::wgedit::validate(&req.edit) {
+        return err(StatusCode::BAD_REQUEST, &e);
+    }
+    eprintln!("wireguard: {user} creates {:?}", req.name);
+    if let Err(e) = crate::wgedit::create(&req.name).await {
+        return err(StatusCode::BAD_REQUEST, &e);
+    }
+    match crate::wgedit::apply(&req.name, &req.edit).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => {
+            // don't leave a half-made tunnel behind
+            let _ = crate::cmd::run_any("nmcli", &["connection", "delete", &req.name]).await;
+            err(StatusCode::BAD_REQUEST, &e)
+        }
+    }
+}
 
 fn wifi_result(r: Result<String, String>) -> Response {
     match r {
@@ -457,11 +877,17 @@ async fn wifi_scan(State(app): State<App>, h: HeaderMap, Json(req): Json<ScanReq
 
 // ---------------- network extras ----------------
 
-async fn net_info(State(app): State<App>, h: HeaderMap) -> Response {
+#[derive(Deserialize)]
+struct FreshQ {
+    fresh: Option<u8>,
+}
+
+async fn net_info(State(app): State<App>, h: HeaderMap, Query(q): Query<FreshQ>) -> Response {
     match access(&app, &h) {
-        Access::Admin(_) => Json(crate::net::collect().await).into_response(),
+        // `?fresh=1` (after a change) skips the shared cache; only admins can change things
+        Access::Admin(_) => Json(crate::net::collect_cached(q.fresh == Some(1)).await).into_response(),
         Access::Guest(_) => {
-            let mut n = crate::net::collect().await;
+            let mut n = crate::net::collect_cached(false).await;
             n.for_guest();
             Json(n).into_response()
         }
@@ -484,7 +910,10 @@ async fn wg_import(State(app): State<App>, h: HeaderMap, Json(req): Json<WgImpor
         Ok(u) => u,
         Err(r) => return r,
     };
-    eprintln!("wireguard: {user} imports {:?} (route_all {}, autoconnect {})", req.name, req.route_all, req.autoconnect);
+    eprintln!(
+        "wireguard: {user} imports {:?} (route_all {}, autoconnect {})",
+        req.name, req.route_all, req.autoconnect
+    );
     wifi_result(crate::net::wg_import(&req.name, &req.config, req.route_all, req.autoconnect).await)
 }
 

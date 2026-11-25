@@ -1,0 +1,68 @@
+From f3545549402d9a2f4e014407fa22dea950fc2306 Mon Sep 17 00:00:00 2001
+From: derpyspike <67692052+derpyspike@users.noreply.github.com>
+Date: Wed, 25 Nov 2026 12:48:17 +0100
+Subject: [PATCH 1/2] lxmf: ignore bytes after the delivery announce array,
+ like the reference
+
+DeliveryAnnounce::decode returned Err(Trailing) when app_data had bytes
+after the msgpack array. Python's umsgpack.unpackb reads the first object
+and ignores the rest, so Python LXMF peers accept such announces. A
+MeshChatX nightly announces [name, stamp_cost, [functions], float] plus 18
+more bytes; lnmsg then lost the recipient's stamp cost, sent the message
+without a stamp, and the recipient (stamp cost 8) dropped it after sending
+its delivery proof, so lnmsg reported "Delivered".
+
+Test: trailing_bytes_after_the_array_are_ignored (synthetic data).
+Note: router::persistence_tests::issued_ticket_stamp_is_accepted_
+synchronously_even_without_pow fails before and after this change here
+(built with rustc 1.100, not the pinned 1.97.1).
+
+Local patch for dongie on a UZ801; to be reported upstream.
+---
+ leviculum-lxmf/src/announce.rs | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/leviculum-lxmf/src/announce.rs b/leviculum-lxmf/src/announce.rs
+index a40a86b2..4a5396da 100644
+--- a/leviculum-lxmf/src/announce.rs
++++ b/leviculum-lxmf/src/announce.rs
+@@ -151,9 +151,13 @@ impl DeliveryAnnounce {
+         for _ in 3..len {
+             msgpack::skip(data, &mut pos)?;
+         }
+-        if pos != data.len() {
+-            return Err(msgpack::Error::Trailing);
+-        }
++        // Bytes after the array are ignored, as the reference does: Python's
++        // `umsgpack.unpackb` returns the first object and never looks at the
++        // rest, so LXMF peers accept such announces. Some clients (seen with a
++        // MeshChatX nightly) append data there; rejecting the whole announce
++        // lost the stamp cost, and messages then went out unstamped and were
++        // dropped by the recipient after its delivery proof.
++        let _ = pos;
+         Ok(Self {
+             display_name,
+             stamp_cost,
+@@ -195,6 +199,19 @@ mod tests {
+         assert!(decoded.compression_supported);
+     }
+ 
++    #[test]
++    fn trailing_bytes_after_the_array_are_ignored() {
++        // [b"Test", 8, [0], 8.0] followed by bytes that are not part of it
++        let data = [
++            0x94, 0xc4, 0x04, b'T', b'e', b's', b't', 0x08, 0x91, 0x00, // [b"Test", 8, [0],
++            0xcb, 0x40, 0x20, 0, 0, 0, 0, 0, 0, //                          8.0]
++            0xc1, 0x00, 0x40, 0x33, 0x14, //                                trailing bytes
++        ];
++        let decoded = DeliveryAnnounce::decode(&data).unwrap();
++        assert_eq!(decoded.display_name.as_deref(), Some(&b"Test"[..]));
++        assert_eq!(decoded.stamp_cost, Some(8));
++    }
++
+     #[test]
+     fn old_two_element_announce_remains_accepted() {
+         let old = hex::decode("92c405416c69636508").unwrap();
+-- 
+2.54.0
+

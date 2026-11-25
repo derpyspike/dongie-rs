@@ -33,6 +33,46 @@ pub async fn run_any_t(prog: &str, args: &[&str], secs: u64) -> Option<(bool, St
     }
 }
 
+const TAILSCALED_SOCK: &str = "/run/tailscale/tailscaled.sock";
+
+/// GET `/localapi/v0/<path>` from tailscaled over its socket (what the `tailscale`
+/// CLI does internally, without starting a Go binary every poll); falls back to
+/// running `tailscale <cli>` if the socket isn't usable.
+pub async fn tailscale(path: &str, cli: &[&str]) -> Option<String> {
+    match localapi(path).await {
+        Some(s) => Some(s),
+        None => run("tailscale", cli).await,
+    }
+}
+
+async fn localapi(path: &str) -> Option<String> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let fut = async {
+        let mut s = tokio::net::UnixStream::connect(TAILSCALED_SOCK).await.ok()?;
+        // HTTP/1.0: the body simply runs to the end of the connection, no chunking
+        let req = format!(
+            "GET /localapi/v0/{path} HTTP/1.0\r\nHost: local-tailscaled.sock\r\nSec-Tailscale: localapi\r\n\r\n"
+        );
+        s.write_all(req.as_bytes()).await.ok()?;
+        let mut buf = Vec::new();
+        s.read_to_end(&mut buf).await.ok()?;
+        http10_body(&buf)
+    };
+    tokio::time::timeout(Duration::from_secs(5), fut).await.ok().flatten()
+}
+
+/// Body of a `200` HTTP/1.x response without transfer encoding.
+pub fn http10_body(buf: &[u8]) -> Option<String> {
+    let i = buf.windows(4).position(|w| w == b"\r\n\r\n")?;
+    let head = std::str::from_utf8(&buf[..i]).ok()?;
+    if head.lines().next()?.split(' ').nth(1)? != "200"
+        || head.to_ascii_lowercase().contains("transfer-encoding: chunked")
+    {
+        return None;
+    }
+    String::from_utf8(buf[i + 4..].to_vec()).ok()
+}
+
 /// `sudo -n <args>` (only the exact commands allowed in /etc/sudoers.d/dongie work).
 pub async fn sudo(args: &[&str]) -> Option<String> {
     let mut v = vec!["-n"];
@@ -99,11 +139,14 @@ pub fn num(s: &str) -> Option<f64> {
     buf.parse().ok()
 }
 
+/// Name of the active NetworkManager mobile (gsm) connection, if any. With one
+/// connection per SIM (bound by gsm.sim-operator-id) the name depends on the SIM.
+pub async fn active_gsm_connection() -> Option<String> {
+    crate::nm::shared().await?.active_of_kind("gsm").map(|c| c.id.clone())
+}
+
 pub fn now() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 /// (year, month, day) in UTC for a unix timestamp (Howard Hinnant's civil_from_days).
@@ -149,5 +192,18 @@ mod tests {
         assert_eq!(ymd(0), (1970, 1, 1));
         assert_eq!(ymd(1_795_518_317), (2026, 11, 24));
         assert_eq!(ymd(951_782_400), (2000, 2, 29));
+    }
+}
+
+#[cfg(test)]
+mod localapi_tests {
+    #[test]
+    fn http10_body_only_for_plain_200() {
+        let ok = b"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n\r\n{\"BackendState\":\"Running\"}";
+        assert_eq!(super::http10_body(ok).unwrap(), "{\"BackendState\":\"Running\"}");
+        assert!(super::http10_body(b"HTTP/1.0 403 Forbidden\r\n\r\nno").is_none());
+        assert!(super::http10_body(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n")
+            .is_none());
+        assert!(super::http10_body(b"garbage").is_none());
     }
 }

@@ -55,6 +55,10 @@ impl ImsStatus {
 #[serde(default)]
 pub struct Call {
     pub id: u64,
+    /// dongie side: which dongie-ims run the id belongs to (ids restart with it)
+    pub session: u64,
+    /// dongie side: from the kept call log, not dongie-ims' live list (no call control)
+    pub archived: bool,
     pub codec: String,
     pub answered_at: u64,
     pub browser: String,
@@ -85,7 +89,13 @@ pub async fn request(socket: &str, method: &str, path: &str) -> Option<(u16, Str
 }
 
 /// Same with a JSON body and a custom timeout (answering waits for the IMS side).
-pub async fn request_body(socket: &str, method: &str, path: &str, body: &str, timeout: Duration) -> Option<(u16, String)> {
+pub async fn request_body(
+    socket: &str,
+    method: &str,
+    path: &str,
+    body: &str,
+    timeout: Duration,
+) -> Option<(u16, String)> {
     if socket.is_empty() {
         return None;
     }
@@ -126,15 +136,47 @@ pub async fn status(socket: &str) -> Option<ImsStatus> {
 pub struct Ims {
     pub socket: String,
     pub calls: Arc<Mutex<Vec<Call>>>,
+    /// Ended calls, kept across dongie-ims restarts (and, with persist = true,
+    /// across dongie restarts), oldest first, at most ARCHIVE_MAX.
+    pub archive: Arc<Mutex<Vec<Call>>>,
+}
+
+pub const ARCHIVE_MAX: usize = 200;
+
+/// Live calls plus archived ones that aren't in the live list, newest first.
+/// Archived entries get id 0 so they can't be mistaken for a live call.
+pub fn merged(live: &[Call], archive: &[Call]) -> Vec<Call> {
+    let mut out: Vec<Call> = live.to_vec();
+    for a in archive.iter().rev() {
+        if !live.iter().any(|l| l.session == a.session && l.id == a.id) {
+            out.push(Call { id: 0, archived: true, ..a.clone() });
+        }
+    }
+    out.sort_by_key(|a| std::cmp::Reverse(a.at));
+    out.truncate(ARCHIVE_MAX);
+    out
+}
+
+fn archive_ended(archive: &mut Vec<Call>, calls: &[Call]) {
+    for c in calls.iter().filter(|c| c.ended) {
+        match archive.iter_mut().find(|a| a.session == c.session && a.id == c.id) {
+            Some(a) => *a = c.clone(),
+            None => archive.push(c.clone()),
+        }
+    }
+    if archive.len() > ARCHIVE_MAX {
+        let extra = archive.len() - ARCHIVE_MAX;
+        archive.drain(..extra);
+    }
 }
 
 impl Ims {
     pub fn new(socket: String) -> Ims {
-        Ims { socket, calls: Arc::new(Mutex::new(vec![])) }
+        Ims { socket, calls: Arc::new(Mutex::new(vec![])), archive: Arc::new(Mutex::new(vec![])) }
     }
 
     /// Mirror the call log and pull IMS-delivered SMS into the SMS store, forever.
-    pub async fn run(self, sms: Option<Sms>) {
+    pub async fn run(self, sms: Option<Sms>, events: Option<crate::notify::Sender>) {
         #[derive(Deserialize)]
         struct Calls {
             calls: Vec<Call>,
@@ -146,14 +188,33 @@ impl Ims {
         // dongie-ims restarts reset its ids; track its start time to notice.
         let mut started = 0u64;
         let mut after = 0u64;
+        // call notifications: ids already notified as ringing / missed; on the first
+        // look after a (re)start everything present counts as seen (no flood of old calls)
+        let mut rang = std::collections::HashSet::new();
+        let mut missed = std::collections::HashSet::new();
+        let mut primed = false;
         loop {
             if let Some(st) = status(&self.socket).await {
                 if st.started != started {
                     started = st.started;
                     after = 0;
+                    rang.clear();
+                    missed.clear();
+                    primed = false;
                 }
                 if let Some(c) = get_json::<Calls>(&self.socket, "/v1/calls").await {
                     let mut calls = c.calls;
+                    calls.iter_mut().for_each(|c| c.session = started);
+                    archive_ended(&mut *self.archive.lock().await, &calls);
+                    for call in calls.iter().filter(|c| c.dir == "in") {
+                        if !call.ended && rang.insert(call.id) && primed {
+                            notify(&events, crate::notify::Event::Call { from: call.from.clone() });
+                        }
+                        if call.ended && call.result == "missed" && missed.insert(call.id) && primed {
+                            notify(&events, crate::notify::Event::MissedCall { from: call.from.clone() });
+                        }
+                    }
+                    primed = true;
                     calls.reverse(); // newest first
                     *self.calls.lock().await = calls;
                 }
@@ -180,7 +241,8 @@ impl Ims {
         match request_body(&self.socket, "POST", path, &body, Duration::from_secs(40)).await {
             Some((code, text)) => (
                 code,
-                serde_json::from_str(&text).unwrap_or_else(|_| serde_json::json!({ "error": "bad reply from dongie-ims" })),
+                serde_json::from_str(&text)
+                    .unwrap_or_else(|_| serde_json::json!({ "error": "bad reply from dongie-ims" })),
             ),
             None => (502, serde_json::json!({ "error": "dongie-ims not reachable" })),
         }
@@ -213,5 +275,42 @@ mod tests {
         s.for_guest();
         assert!(s.msisdn.is_none() && s.pcscf.is_empty());
         assert!(parse_response(b"garbage").is_none());
+    }
+}
+
+#[cfg(test)]
+mod archive_tests {
+    use super::*;
+
+    fn call(session: u64, id: u64, at: u64, ended: bool) -> Call {
+        Call { session, id, at, ended, dir: "in".into(), ..Default::default() }
+    }
+
+    #[test]
+    fn archive_and_merge() {
+        let mut arch = vec![];
+        // dongie-ims run 1: one ended, one still ringing
+        archive_ended(&mut arch, &[call(1, 1, 100, true), call(1, 2, 200, false)]);
+        assert_eq!(arch.len(), 1);
+        // run 2 restarts the ids at 1
+        let live = vec![call(2, 1, 300, false)];
+        let m = merged(&live, &arch);
+        assert_eq!(
+            m.iter().map(|c| (c.id, c.at, c.archived)).collect::<Vec<_>>(),
+            vec![(1, 300, false), (0, 100, true)]
+        );
+        // an ended live call is not listed twice
+        archive_ended(&mut arch, &[call(2, 1, 300, true)]);
+        assert_eq!(merged(&[call(2, 1, 300, true)], &arch).len(), 2);
+        for i in 0..250 {
+            archive_ended(&mut arch, &[call(3, i, 1000 + i, true)]);
+        }
+        assert_eq!(arch.len(), ARCHIVE_MAX);
+    }
+}
+
+fn notify(events: &Option<crate::notify::Sender>, ev: crate::notify::Event) {
+    if let Some(tx) = events {
+        let _ = tx.send(ev);
     }
 }

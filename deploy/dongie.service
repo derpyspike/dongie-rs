@@ -11,6 +11,10 @@ ExecStart=/usr/local/bin/dongie serve
 Restart=always
 RestartSec=5
 StateDirectory=dongie
+# /run/dongie (RAM): login sessions survive a restart of dongie, not a reboot
+RuntimeDirectory=dongie
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=restart
 ConfigurationDirectory=dongie
 ConfigurationDirectoryMode=0750
 # light hardening (no NoNewPrivileges: we need sudo for the few qmicli calls)

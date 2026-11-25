@@ -115,7 +115,7 @@ impl History {
             last = Some(label);
         }
         let mut bands: Vec<(String, u64)> = secs.into_iter().collect();
-        bands.sort_by(|a, b| b.1.cmp(&a.1));
+        bands.sort_by_key(|b| std::cmp::Reverse(b.1));
         v.bands = bands;
 
         // bucket

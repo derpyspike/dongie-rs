@@ -104,10 +104,7 @@ fn parse_link(t: &str) -> Option<Station> {
     if !t.starts_with("Connected to ") {
         return None;
     }
-    let mut s = Station {
-        bssid: t.split_whitespace().nth(2).map(String::from),
-        ..Default::default()
-    };
+    let mut s = Station { bssid: t.split_whitespace().nth(2).map(String::from), ..Default::default() };
     for line in t.lines().skip(1) {
         if let Some((k, v)) = line.trim().split_once(':') {
             let v = v.trim();
@@ -125,44 +122,29 @@ fn parse_link(t: &str) -> Option<Station> {
 }
 
 async fn saved_wifi() -> Vec<Saved> {
-    let Some(t) = cmd::run("nmcli", &["-t", "-f", "NAME,TYPE,AUTOCONNECT,AUTOCONNECT-PRIORITY,ACTIVE", "con", "show"]).await else {
-        return vec![];
-    };
-    let mut out = vec![];
-    for line in t.lines() {
-        let f = split_t(line);
-        if f.len() < 5 || f[1] != "802-11-wireless" {
-            continue;
-        }
-        let mut s = Saved {
-            name: f[0].clone(),
-            autoconnect: f[2] == "yes",
-            priority: f[3].parse().unwrap_or(0),
-            active: f[4] == "yes",
-            ..Default::default()
-        };
-        if let Some(d) = cmd::run("nmcli", &["-t", "-g", "802-11-wireless.ssid,802-11-wireless.mode", "con", "show", &s.name]).await {
-            let mut it = d.lines();
-            s.ssid = it.next().map(|x| x.replace("\\:", ":")).filter(|x| !x.is_empty());
-            s.mode = it.next().map(String::from).filter(|x| !x.is_empty());
-        }
-        out.push(s);
-    }
-    out
+    crate::nm::shared().await.map(|s| saved_from(&s)).unwrap_or_default()
+}
+
+fn saved_from(s: &crate::nm::Snapshot) -> Vec<Saved> {
+    s.conns
+        .iter()
+        .filter(|c| c.kind == "802-11-wireless")
+        .map(|c| Saved {
+            name: c.id.clone(),
+            ssid: c.ssid(),
+            mode: c.str("802-11-wireless", "mode").filter(|m| !m.is_empty()),
+            autoconnect: c.autoconnect(),
+            priority: c.i32("connection", "autoconnect-priority").unwrap_or(0),
+            active: c.activated(),
+        })
+        .collect()
 }
 
 pub async fn collect(hotspot_con: &str) -> Wifi {
     let mut w = Wifi { mode: "off".into(), ..Default::default() };
-    let ch_args = ["-t", "-g", "802-11-wireless.channel", "con", "show", hotspot_con];
-    let (dev, saved, link, ch) = tokio::join!(
-        cmd::run("nmcli", &["-t", "-f", "GENERAL.CONNECTION", "dev", "show", IFACE]),
-        saved_wifi(),
-        cmd::run("/usr/sbin/iw", &["dev", IFACE, "link"]),
-        cmd::run("nmcli", &ch_args),
-    );
-    w.connection = dev
-        .and_then(|t| t.lines().next().and_then(|l| l.split_once(':')).map(|(_, v)| v.trim().to_string()))
-        .filter(|v| !v.is_empty() && v != "--");
+    let (nm, link) = tokio::join!(crate::nm::shared(), cmd::run("/usr/sbin/iw", &["dev", IFACE, "link"]));
+    let saved = nm.as_ref().map(saved_from).unwrap_or_default();
+    w.connection = nm.as_ref().and_then(|s| s.on_device(IFACE)).map(|c| c.id.clone());
     if let Some(c) = &w.connection {
         let m = saved.iter().find(|s| &s.name == c).and_then(|s| s.mode.clone());
         w.mode = match m.as_deref() {
@@ -181,7 +163,11 @@ pub async fn collect(hotspot_con: &str) -> Wifi {
         }
     }
     w.hotspot_ssid = saved.iter().find(|s| s.name == hotspot_con).and_then(|s| s.ssid.clone());
-    w.hotspot_channel = ch.map(|c| c.trim().to_string()).filter(|c| !c.is_empty());
+    // nmcli printed 0 for "automatic" too
+    w.hotspot_channel = nm
+        .as_ref()
+        .and_then(|s| s.by_id(hotspot_con))
+        .map(|c| c.u32("802-11-wireless", "channel").unwrap_or(0).to_string());
     w.saved = saved;
     w
 }
@@ -253,7 +239,18 @@ pub async fn set_hotspot(
 
 async fn scan_raw() -> Result<Vec<ScanResult>, String> {
     let t = nmcli(
-        &["-t", "-f", "IN-USE,SSID,BSSID,CHAN,FREQ,SIGNAL,SECURITY", "dev", "wifi", "list", "ifname", IFACE, "--rescan", "yes"],
+        &[
+            "-t",
+            "-f",
+            "IN-USE,SSID,BSSID,CHAN,FREQ,SIGNAL,SECURITY",
+            "dev",
+            "wifi",
+            "list",
+            "ifname",
+            IFACE,
+            "--rescan",
+            "yes",
+        ],
         40,
     )
     .await?;
@@ -300,7 +297,7 @@ pub fn summarize(raw: Vec<ScanResult>) -> (Vec<ScanResult>, Vec<(u32, u32, u32)>
             None => by.push(r),
         }
     }
-    by.sort_by(|a, b| b.signal.cmp(&a.signal));
+    by.sort_by_key(|a| std::cmp::Reverse(a.signal));
     (by, ch)
 }
 
@@ -376,10 +373,8 @@ pub async fn connect_new(ssid: &str, password: Option<&str>, hotspot_con: &str) 
             return Err("password must be 8-63 printable ASCII characters".into());
         }
     }
-    let safe: String = ssid
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
-        .collect();
+    let safe: String =
+        ssid.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
     let name = format!("wifi-{safe}");
     if name == hotspot_con {
         return Err("name clash with the hotspot connection".into());
@@ -388,7 +383,20 @@ pub async fn connect_new(ssid: &str, password: Option<&str>, hotspot_con: &str) 
     let mut args: Vec<&str> = if exists {
         vec!["con", "modify", &name, "802-11-wireless.ssid", ssid]
     } else {
-        vec!["con", "add", "type", "wifi", "ifname", IFACE, "con-name", &name, "ssid", ssid, "connection.autoconnect", "yes"]
+        vec![
+            "con",
+            "add",
+            "type",
+            "wifi",
+            "ifname",
+            IFACE,
+            "con-name",
+            &name,
+            "ssid",
+            ssid,
+            "connection.autoconnect",
+            "yes",
+        ]
     };
     if let Some(p) = pw {
         args.extend(["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", p]);
@@ -420,7 +428,10 @@ mod tests {
 
     #[test]
     fn nmcli_terse_escapes() {
-        assert_eq!(split_t(r"*:Home\:Net:AA\:BB\:CC\:DD\:EE\:FF:6:72:WPA2"), vec!["*", "Home:Net", "AA:BB:CC:DD:EE:FF", "6", "72", "WPA2"]);
+        assert_eq!(
+            split_t(r"*:Home\:Net:AA\:BB\:CC\:DD\:EE\:FF:6:72:WPA2"),
+            vec!["*", "Home:Net", "AA:BB:CC:DD:EE:FF", "6", "72", "WPA2"]
+        );
         assert_eq!(split_t("hotspot:802-11-wireless:yes:100:yes").len(), 5);
     }
 
@@ -436,7 +447,13 @@ mod tests {
 
     #[test]
     fn scan_summary() {
-        let mk = |ssid: &str, ch: u32, sig: u32| ScanResult { ssid: ssid.into(), channel: Some(ch), signal: Some(sig), ap_count: 1, ..Default::default() };
+        let mk = |ssid: &str, ch: u32, sig: u32| ScanResult {
+            ssid: ssid.into(),
+            channel: Some(ch),
+            signal: Some(sig),
+            ap_count: 1,
+            ..Default::default()
+        };
         let (n, c) = summarize(vec![mk("A", 1, 40), mk("A", 6, 70), mk("B", 6, 50), mk("", 11, 20)]);
         assert_eq!(n.len(), 2);
         assert_eq!(n[0].ssid, "A");

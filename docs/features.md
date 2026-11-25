@@ -7,9 +7,10 @@ actions need an **admin** login.
 | Tab | What you get | Admin only |
 |---|---|---|
 | **Home** | compact cards: mobile (tech, signal tiles, band, IP), data, Wi-Fi, Tailscale, system (load, temp, RAM/zram/disk %), unread SMS | message preview |
-| **Mobile** | **Wi-Fi calling** card when **dongie-ims** (separate GPL-3.0 service) runs (registered since, re-registrations) · connection (operator, SIM, registration, roaming, CS/PS attach, APN, modes) · neighbour cells table (PCI, band, RSRP/RSRQ) and watched frequencies · signal history charts (RSRP, RSRQ/SNR, 3G RSSI/Ec-Io; 1 h / 6 h / 24 h) · band-over-time strip · time per band + switch count · **everything ModemManager reports** about modem, SIM and data bearer | IMEI, IMSI, ICCID, own number, device ID, global cell ID / TAC / PLMN, timing advance (≈ distance to the tower); LTE reconnect; IMS number, inner IP, P-CSCF, last error, **call log** (answered / missed / rejected, offered codecs) with reject for ringing calls |
+| **Mobile** | **Wi-Fi calling** card when [dongie-ims](https://github.com/derpyspike/dongie-ims) (separate GPL-3.0 service) runs (registered since, re-registrations) · connection (operator, SIM, registration, roaming, CS/PS attach, APN, modes) · neighbour cells table (PCI, band, RSRP/RSRQ) and watched frequencies · signal history charts (RSRP, RSRQ/SNR, 3G RSSI/Ec-Io; 1 h / 6 h / 24 h) · band-over-time strip · time per band + switch count · **everything ModemManager reports** about modem, SIM and data bearer | IMEI, IMSI, ICCID, own number, device ID, global cell ID / TAC / PLMN, timing advance (≈ distance to the tower); LTE reconnect; IMS number, inner IP, P-CSCF, last error, **call log** (answered / missed / rejected, offered codecs) with reject for ringing calls |
 | **Network** | Wi-Fi (hotspot or client mode) · Tailscale (IP, peers online, health) · WireGuard tunnels (state, public key, handshake, traffic) · interfaces · routes & DNS · data usage (today / month / session, 31-day chart) | hotspot settings (SSID, password, channel), scan & join networks, saved networks, WireGuard import/start/stop/autostart/delete, connection test, Tailscale peer list, hotspot client details |
 | **System** | uptime, load, CPU clock, RAM, zram, disk · temperature tiles + history · RAM history · **flash write rate** (since boot, ext4 lifetime, per-day estimate, chart) · services · LEDs | reboot |
+| **Mesh** (when [muxtastic](../contrib/muxtastic/README.md) is installed) | Meshtastic node via muxtastic (name, firmware, LoRa preset, packets/messages/nodes in 24 h, RAM) · connected apps · heard nodes (last heard, SNR, hops, battery) · button to muxtastic's own UI | node address, app addresses, latest messages |
 | **Messages** | — | SMS conversations, send (with delivery reports ✓ / ✓✓ / ✗), unread badges, GSM/Unicode character counter |
 
 **Calls** (admin, needs dongie-ims + HTTPS): a call bar at the bottom of every tab rings for
@@ -22,6 +23,12 @@ the microphone over HTTPS, so open dongie via `tailscale serve` (see [install](i
 then deleted from the SIM/modem, so the SIM never fills up. A restart clears them.
 While dongie-ims is registered, the network may deliver SMS over IMS instead of through
 the modem. dongie pulls those from dongie-ims and marks them "via Wi-Fi calling".
+
+**Network selection** (admin, Mobile tab): Automatic or a fixed network (Vodafone / Orange /
+Yoigo / Movistar ES, Telekom / Vodafone / O2 DE). The UZ801 firmware can't scan for networks,
+so the list is fixed; under the hood dongie sets `gsm.network-id` on the active modem
+connection and reconnects. If the stick isn't connected again within 150 s it switches back
+to automatic, and a watchdog clears a manual network after 5 min offline (reboots, travel).
 
 **Screenshot mode:** append `?redact` to the URL (`http://<stick>:8040/?redact#home`) to
 mask IP addresses and tailnet peer counts in the page before taking screenshots

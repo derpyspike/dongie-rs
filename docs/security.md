@@ -21,6 +21,9 @@
     no TCP). Guests see only "registered / since"; number, IPs and the call log are admin only.
 - **Deliberately not offered:** switching the Tailscale **exit node** or **accept-routes**.
   Changing them remotely can cut the stick off from the tailnet; they are shown read-only.
+- **Hotspot / USB access** (`web_listen_extra`): only the web UI (8040) is offered there,
+  never the open API. With `anonymous_guest = true` everyone on the hotspot sees the guest
+  view (signal, data usage, no SMS / numbers / IMEI); set it to `false` if that's too much.
 - **Port 8041 has no login.** With `api_allow_sms = true` (default) **anyone on the
   tailnet can read and send SMS** from the SIM (and read the Wi-Fi calling call log). Set it to `false` if that is too much.
 - **Known gap:** Wi-Fi passwords are passed to `nmcli` as command-line arguments, so other

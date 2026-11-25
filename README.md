@@ -21,7 +21,7 @@ small JSON API. One static ~2 MB binary using a few MB of RAM, made for a stick 
 ## Features
 
 - 📡 **Mobile** — 3G/4G, band, RSRP/RSRQ/SNR with 24 h charts, neighbour cells, band histogram, everything ModemManager knows
-- 📞 **Wi-Fi calling** — answer and make phone calls **in the browser** (WebRTC, HD voice) via **dongie-ims** (separate GPL-3.0 service)
+- 📞 **Wi-Fi calling** — answer and make phone calls **in the browser** (WebRTC, HD voice) via [dongie-ims](https://github.com/derpyspike/dongie-ims) (separate GPL-3.0 service)
 - 💬 **SMS** — conversations, send with delivery reports, RAM-only, SIM kept empty
 - 📶 **Wi-Fi** — hotspot or client mode, settings, scan & join, channel usage
 - 🛡 **WireGuard & Tailscale** — tunnels via NetworkManager, peers, routes, DNS, connection test

@@ -1,46 +1,82 @@
 #!/bin/bash
 # SPDX-License-Identifier: EUPL-1.2
-# dongie-leds — status LEDs for a UZ801 stick, run by dongie-leds.service
-#   blue:wan   on = LTE connected | slow blink = searching/registering/connecting | off = modem off/failed
-#   green:wlan on = Tailscale running | off = not connected
-#   red:power  untouched (stays on)
+# dongie-leds — status LEDs for MSM8916 sticks, run by dongie-leds.service
+#   WAN LED   on = LTE connected | slow blink = searching/registering/connecting | off = modem off/failed
+#             (boards with a separate red WAN LED, e.g. MF800: red on = modem off/failed)
+#   WLAN LED  on = Tailscale running (if installed), otherwise: Wi-Fi active (hotspot or client)
+#   power LED untouched
 # Polls every 5 s; only writes to sysfs when a state changes (no flicker).
-# Set up 2026-11-24.
+#
+# LEDs are found by their function (sysfs name color:function), so this works on
+#   UZ801 v3, JZ01-45-V33  blue:wan, green:wlan
+#   MF800                  green:wan-online (+ red:wan), green:wlan
+#   HMUF02 v5              LEDs only labelled red/green/blue: green = wan, blue = wlan (table below)
+# Override in /etc/default/dongie-leds: WAN_LED=, WAN_FAIL_LED=, WLAN_LED= (sysfs paths),
+# WLAN_SOURCE=tailscale|wifi. DRY_RUN=1 prints what was found and exits.
 
-BLUE=/sys/class/leds/blue:wan
-GREEN=/sys/class/leds/green:wlan
+LEDS=${LEDS:-/sys/class/leds}
+MODEL_FILE=${MODEL_FILE:-/proc/device-tree/model}
 INTERVAL=5
+# shellcheck disable=SC1091
+[ -r /etc/default/dongie-leds ] && . /etc/default/dongie-leds
 
-led_on()    { echo none > "$1/trigger"; echo 1 > "$1/brightness"; }
-led_off()   { echo none > "$1/trigger"; echo 0 > "$1/brightness"; }
-led_blink() { echo timer > "$1/trigger"; echo 300 > "$1/delay_on"; echo 1700 > "$1/delay_off"; }
+find_led() { # first existing LED with one of these functions
+  local f p
+  for f in "$@"; do
+    for p in "$LEDS"/*:"$f"; do [ -e "$p" ] && { echo "$p"; return; }; done
+  done
+}
 
-cleanup() { led_off "$BLUE"; led_off "$GREEN"; exit 0; }
+model=$(tr -d '\0' < "$MODEL_FILE" 2>/dev/null)
+case "$model" in
+  msm8916-hmuf02_v5) : "${WAN_LED:=$LEDS/green}" "${WLAN_LED:=$LEDS/blue}" ;;
+esac
+: "${WAN_LED:=$(find_led wan-online wan)}"
+if [ -z "${WAN_FAIL_LED+x}" ]; then
+  WAN_FAIL_LED=""
+  case "$WAN_LED" in *:wan-online) WAN_FAIL_LED=$(find_led wan) ;; esac
+fi
+: "${WLAN_LED:=$(find_led wlan)}"
+if [ -z "$WLAN_SOURCE" ]; then
+  if command -v tailscale >/dev/null; then WLAN_SOURCE=tailscale; else WLAN_SOURCE=wifi; fi
+fi
+
+echo "model '${model:-?}': wan=${WAN_LED:-none} wan-fail=${WAN_FAIL_LED:-none} wlan=${WLAN_LED:-none} (${WLAN_SOURCE})"
+[ -n "$DRY_RUN" ] && exit 0
+if [ -z "$WAN_LED$WLAN_LED" ]; then echo "no usable LEDs found, exiting"; exit 0; fi
+
+led_on()    { [ -n "$1" ] || return 0; echo none > "$1/trigger"; echo 1 > "$1/brightness"; }
+led_off()   { [ -n "$1" ] || return 0; echo none > "$1/trigger"; echo 0 > "$1/brightness"; }
+led_blink() { [ -n "$1" ] || return 0; echo timer > "$1/trigger"; echo 300 > "$1/delay_on"; echo 1700 > "$1/delay_off"; }
+
+cleanup() { led_off "$WAN_LED"; led_off "$WAN_FAIL_LED"; led_off "$WLAN_LED"; exit 0; }
 trap cleanup TERM INT
 
-last_blue=""; last_green=""
+last_wan=""; last_wlan=""
 while true; do
   state=$(mmcli -m any -K 2>/dev/null | awk -F': ' '/^modem.generic.state +:/ {gsub(/ /,"",$2); print $2; exit}')
   case "$state" in
-    connected)                                      blue=on ;;
-    searching|registered|connecting|enabling|enabled|locked) blue=blink ;;
-    *)                                              blue=off ;;
+    connected)                                      wan=on ;;
+    searching|registered|connecting|enabling|enabled|locked) wan=blink ;;
+    *)                                              wan=off ;;
   esac
-  if [ "$blue" != "$last_blue" ]; then
-    case "$blue" in on) led_on "$BLUE" ;; blink) led_blink "$BLUE" ;; off) led_off "$BLUE" ;; esac
-    echo "blue -> $blue (modem state: ${state:-none})"
-    last_blue=$blue
+  if [ "$wan" != "$last_wan" ]; then
+    case "$wan" in on) led_on "$WAN_LED" ;; blink) led_blink "$WAN_LED" ;; off) led_off "$WAN_LED" ;; esac
+    if [ "$wan" = off ]; then led_on "$WAN_FAIL_LED"; else led_off "$WAN_FAIL_LED"; fi
+    echo "wan -> $wan (modem state: ${state:-none})"
+    last_wan=$wan
   fi
 
-  if tailscale status --peers=false --json 2>/dev/null | grep -q '"BackendState": *"Running"'; then
-    green=on
+  wlan=off
+  if [ "$WLAN_SOURCE" = tailscale ]; then
+    tailscale status --peers=false --json 2>/dev/null | grep -q '"BackendState": *"Running"' && wlan=on
   else
-    green=off
+    nmcli -t -f TYPE,STATE con show --active 2>/dev/null | grep -q '^802-11-wireless:activated' && wlan=on
   fi
-  if [ "$green" != "$last_green" ]; then
-    case "$green" in on) led_on "$GREEN" ;; off) led_off "$GREEN" ;; esac
-    echo "green -> $green (tailscale)"
-    last_green=$green
+  if [ "$wlan" != "$last_wlan" ]; then
+    case "$wlan" in on) led_on "$WLAN_LED" ;; off) led_off "$WLAN_LED" ;; esac
+    echo "wlan -> $wlan ($WLAN_SOURCE)"
+    last_wlan=$wlan
   fi
 
   sleep "$INTERVAL"

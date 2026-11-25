@@ -74,7 +74,84 @@ button:disabled{opacity:.5;cursor:default}
 #callbar button.end{background:var(--red);border-color:var(--red);color:var(--base);font-weight:700}
 .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.keypad button{font-size:17px;padding:8px}
 .dial{display:flex;gap:8px;margin-top:10px}.dial input{flex:1;min-width:0}
+.ussd-out{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:13.5px;background:var(--surface0);border-radius:8px;padding:8px 10px;margin:6px 0}
+.thead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 2px 8px;border-bottom:1px solid var(--surface0);margin-bottom:6px}
+button.small{font-size:12px;padding:2px 8px}
+.stg-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
+.stg-row>label:first-child{flex:0 0 150px;font-size:13px;color:var(--subtext1)}
+.stg-row input:not([type=checkbox]),.stg-row select{flex:1 1 120px;min-width:0}
+.stg-row .stg-badge{flex:0 0 auto}
+.stg-row .hint{flex-basis:100%;margin-top:0}
+.stg-badge{display:inline-flex;gap:4px;align-items:center}
+.stg-target{border:1px solid var(--surface0);border-radius:10px;padding:6px 10px;margin:8px 0}
+.stg-pending{background:var(--surface0);border-radius:10px;padding:10px;margin:8px 0;display:flex;flex-direction:column;gap:8px}
+label.chk{font-size:13px;display:inline-flex;align-items:center;gap:3px}
+table.svctab td{white-space:nowrap}
+table.svctab .svctot{font-size:11px;color:var(--subtext0)}
+table.svctab tr.svcsum td{border-top:1px solid var(--surface1);font-weight:700}
+table.svctab tr.svcsum .svctot{color:var(--text)}
+table.svctab td:not(:first-child),table.svctab th:not(:first-child){text-align:right}
+/* WireGuard: tunnel cards + editor */
+.wgt{border:1px solid var(--surface0);border-radius:12px;padding:10px 12px;margin:10px 0 4px;background:var(--base)}
+.wgt.up{border-color:color-mix(in srgb,var(--green) 35%,var(--surface0))}
+.wgtop,.wghead{display:flex;align-items:center;gap:10px}
+.wgic{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:17px;background:color-mix(in srgb,var(--green) 18%,var(--surface0))}
+.wgt:not(.up) .wgic{background:var(--surface0);filter:grayscale(1)}
+.wgic.big{width:40px;height:40px;font-size:20px;border-radius:12px}
+.wgttl{display:flex;flex-direction:column;min-width:0;flex:1}.wgttl b{font-size:15px}
+.wgkey{display:flex;align-items:center;gap:8px;margin:8px 0 2px;font-size:12.5px;min-width:0}
+.wgkey code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;background:var(--crust);border-radius:7px;padding:3px 8px;user-select:all}
+.wgpeers{margin-top:6px;display:flex;flex-direction:column}
+.wgp{display:flex;align-items:center;gap:10px;padding:6px;border-radius:9px}
+.wgp:hover{background:var(--mantle)}
+.wgav{position:relative;flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--base);background:var(--c,var(--overlay1))}
+.wgav .dot{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border:2px solid var(--base)}
+.wgm{flex:1;min-width:0}
+.wgn{display:flex;align-items:baseline;gap:6px;min-width:0}.wgn b{flex:0 1 auto;min-width:3em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wgn .mono{font-size:11px;flex:0 100 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:520px){.wgn b+.mono{display:none}}
+.wgsub{font-size:12px;color:var(--subtext0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wgs{text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+details.wgmore>summary{cursor:pointer;font-size:12.5px;color:var(--subtext0);padding:4px 6px;font-weight:600}
+.wgact{border-top:1px solid var(--surface0);padding-top:10px}
+dialog.wgdlg{max-width:720px;width:calc(100% - 24px);padding:0;overflow:hidden}
+.wgform{display:flex;flex-direction:column;max-height:min(88vh,920px)}
+.wghead{padding:14px 16px;border-bottom:1px solid var(--surface0)}
+.wgbody{overflow-y:auto;padding:4px 16px 12px;flex:1;scrollbar-width:thin;scrollbar-color:var(--surface2) transparent}
+.wgfoot{border-top:1px solid var(--surface0);padding:10px 16px 12px;background:var(--mantle)}
+.wgfoot .actions{justify-content:flex-end;margin-top:6px}
+.wgsec h4{display:flex;align-items:center;gap:6px;margin:16px 0 8px;font-size:12px;color:var(--subtext1);text-transform:uppercase;letter-spacing:.06em}
+.wggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.wggrid .wide{grid-column:1/-1}
+@media (max-width:520px){.wggrid{grid-template-columns:1fr}}
+.wgf{display:flex;flex-direction:column;gap:3px;min-width:0}
+.wgl{font-size:12px;font-weight:600;color:var(--subtext1);display:flex;align-items:center;gap:6px}
+.wgh{font-size:11.5px;color:var(--overlay1)}
+dialog .wgform input{margin:0;padding:7px 10px}
+.wgf input,.wgf select{font:inherit;width:100%;background:var(--base);color:var(--text);border:1px solid var(--surface1);border-radius:10px;padding:7px 10px;outline:none;margin:0}
+.wgf input:focus,.wgf select:focus{border-color:var(--mauve);box-shadow:0 0 0 3px color-mix(in srgb,var(--mauve) 25%,transparent)}
+.wgf input.invalid{border-color:var(--red);box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 18%,transparent)}
+dialog .wgform input.mono{font-size:12.5px}
+dialog .wgform input.invalid{border-color:var(--red);box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 18%,transparent)}
+.wgkeyrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px}
+.wgkeyrow input{flex:1 1 200px;width:auto}
+.wgsp{flex:1}
+input.wgfilter{margin:0 0 8px}
+details.wgpeer{border:1px solid var(--surface0);border-radius:12px;margin:6px 0;background:var(--base);transition:border-color .15s}
+details.wgpeer[open]{border-color:color-mix(in srgb,var(--mauve) 45%,var(--surface0))}
+details.wgpeer>summary{list-style:none;display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:12px}
+details.wgpeer>summary::-webkit-details-marker{display:none}
+details.wgpeer>summary:hover{background:var(--mantle)}
+details.wgpeer>summary::after{content:"▸";color:var(--overlay1);transition:transform .15s}
+details.wgpeer[open]>summary::after{transform:rotate(90deg)}
+details.wgpeer>.wggrid{padding:4px 12px 12px}
+.wgwarn{font-size:12.5px;color:var(--yellow);background:color-mix(in srgb,var(--yellow) 12%,transparent);border-radius:8px;padding:6px 9px}
+.wgempty{font-size:13px;color:var(--subtext0);text-align:center;padding:18px;border:1px dashed var(--surface1);border-radius:12px}
+button.wgadd{width:100%;margin-top:6px;border-style:dashed;padding:8px;color:var(--mauve);background:transparent}
+button.wgadd:hover{background:color-mix(in srgb,var(--mauve) 10%,transparent)}
+code.addr{display:block;font-size:13px;word-break:break-all;background:var(--surface0);border-radius:8px;padding:6px 8px;margin:6px 0;user-select:all}
 .hint{font-size:12.5px;color:var(--subtext0);margin-top:8px}
+a.btnlink{display:inline-block;font-size:13.5px;border:1px solid var(--mauve);background:var(--mauve);color:var(--base);font-weight:600;border-radius:9px;padding:5px 12px;text-decoration:none}
 
 /* layout */
 main{max-width:1240px;margin:0 auto;padding:16px 16px 8px}
@@ -141,7 +218,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 td,th{text-align:left;padding:4px 5px;border-bottom:1px solid var(--surface0);white-space:nowrap}
 th{color:var(--subtext0);font-weight:500;font-size:12px}
 tr.serving td{background:color-mix(in srgb,var(--blue) 10%,transparent)}
-.tscroll{overflow-x:auto}
+.tscroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--surface2) transparent}
 details.health{margin-top:8px;font-size:13px}
 details.health summary{cursor:pointer;padding:3px 0;font-weight:600}
 details.health .hw{color:var(--subtext0);padding:4px 0 4px 18px;border-top:1px solid var(--surface0);overflow-wrap:anywhere}
@@ -241,6 +318,9 @@ footer{color:var(--overlay1);font-size:12px;text-align:center;padding:20px}
     <a href="#network" data-tab="network">📶 Network</a>
     <a href="#system" data-tab="system">🖥 System</a>
     <a href="#messages" data-tab="messages" id="navMsgs" hidden>💬 Messages <span class="badge" id="navBadge" hidden></span></a>
+    <a href="#reticulum" data-tab="reticulum" id="navRet" hidden>🕸 Reticulum</a>
+    <a href="#mesh" data-tab="mesh" id="navMesh" hidden>📻 Mesh</a>
+    <a href="#settings" data-tab="settings" id="navSettings" hidden>⚙️ Settings</a>
   </nav>
 </header>
 <main>
@@ -248,6 +328,9 @@ footer{color:var(--overlay1);font-size:12px;text-align:center;padding:20px}
   <section id="tab-mobile" hidden><div class="grid wide" id="mobileGrid"></div></section>
   <section id="tab-network" hidden><div class="grid wide" id="networkGrid"></div></section>
   <section id="tab-system" hidden><div class="grid wide" id="systemGrid"></div></section>
+  <section id="tab-reticulum" hidden><div class="grid wide" id="reticulumGrid"></div></section>
+  <section id="tab-mesh" hidden><div class="grid wide" id="meshGrid"></div></section>
+  <section id="tab-settings" hidden><div class="grid wide" id="settingsGrid"></div></section>
   <section id="tab-messages" hidden>
     <div class="card" style="--acc:var(--mauve)">
       <h2><span class="ic">💬</span>Messages <span class="r"><span class="pill" id="unread"></span></span></h2>
@@ -276,6 +359,7 @@ footer{color:var(--overlay1);font-size:12px;text-align:center;padding:20px}
     <label>User<input id="lu" autocomplete="username" required></label>
     <label>Password<input id="lp" type="password" autocomplete="current-password" required></label>
     <div class="err" id="lerr"></div>
+    <div class="hint" id="lhint" hidden>No users yet. Create the first one on the stick (SSH or serial):<br><code>sudo dongie user add &lt;name&gt;</code></div>
     <div class="actions"><button class="pri" id="lgo" value="go">Log in</button><button value="cancel" formnovalidate>Cancel</button></div>
   </form>
 </dialog>
@@ -284,6 +368,30 @@ footer{color:var(--overlay1);font-size:12px;text-align:center;padding:20px}
 "use strict";
 const $ = id => document.getElementById(id);
 const SVGNS = "http://www.w3.org/2000/svg";
+let netsel = null;
+// ---------- contacts ----------
+let contacts = [];
+const digitsOf = n => (n || "").replace(/\D/g, "");
+function sameNumber(a, b) {
+  a = digitsOf(a); b = digitsOf(b);
+  if (!a || !b) return false;
+  const [s, l] = a.length <= b.length ? [a, b] : [b, a];
+  return s === l || (s.length >= 9 && l.endsWith(s));
+}
+function nameFor(n) { const c = contacts.find(c => sameNumber(c.number, n)); return c ? c.name : null; }
+function who(n, fallback) { if (!n) return fallback || "unknown"; const nm = nameFor(n); return nm ? nm + " (" + n + ")" : n; }
+async function loadContacts() {
+  if (me.role !== "admin") { contacts = []; return; }
+  try { contacts = (await api("/api/contacts")).contacts; } catch (_) {}
+  renderTab(); if (tab === "messages") renderSms();
+}
+async function editContact(n) {
+  const cur = nameFor(n) || "";
+  const name = prompt("Name for " + n + (cur ? "\n(empty = remove the contact)" : ""), cur);
+  if (name === null || name.trim() === cur) return;
+  try { await api("/api/contacts", {method: "POST", json: {number: n, name: name.trim()}}); } catch (e) { alert("Saving the contact failed: " + e.message); }
+  loadContacts();
+}
 let me = {role: "none"}, status = null, msgs = [], calls = [], sel = null, hist = null, histAt = 0;
 let tab = "home", range = 3600;
 const wf = {ssid: null, pw: "", channel: null, jssid: "", jpw: "", scan: null, msg: "", msgCls: "", busy: false,
@@ -319,7 +427,7 @@ async function api(path, opt = {}) {
 // ---------- helpers ----------
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined && text !== null) e.textContent = text; return e; }
 function sv(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); return e; }
-function bytes(n) { if (n == null) return "—"; const u = ["B","KB","MB","GB","TB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i ? n.toFixed(1) : n) + " " + u[i]; }
+function bytes(n) { if (n == null) return "—"; const u = ["B","KB","MB","GB","TB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i ? n.toFixed(1) : Math.round(n)) + " " + u[i]; }
 function dur(s) { if (s == null) return "—"; const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + (d || h ? h + "h " : "") + m + "m"; }
 function rate(v, good, ok) { if (v == null) return "bad"; return v > good ? "good" : v >= ok ? "ok" : "bad"; }
 function stateCls(s) { return ["connected","active","Running","activated","attached"].includes(s) ? "good" : ["registered","connecting","searching","activating","Starting","enabling","enabled"].includes(s) ? "ok" : "bad"; }
@@ -416,6 +524,9 @@ function noData(c, txt) { c.appendChild(el("div", "empty-note", txt || "Collecti
 function renderHeader() {
   const s = status, l = s.lte, lvl = sigLevel(l), tech = l.tech ? (l.tech === "lte" ? "4G" : "3G") : null;
   $("title").textContent = s.system.hostname || "dongie";
+  // tab title = hostname (the call bar prefixes it with 📞 while a call is going on)
+  const ht = s.system.hostname || "dongie";
+  if (ht !== BASE_TITLE) { if (document.title === BASE_TITLE) document.title = ht; BASE_TITLE = ht; }
   $("subtitle").textContent = (s.system.model || "") + " · " + new Date(s.updated * 1000).toLocaleTimeString();
   const ch = $("chips"); ch.textContent = "";
   const c1 = chip("", null, l.state === "connected" ? "good" : l.state ? "ok" : "bad");
@@ -437,6 +548,9 @@ function renderTab() {
   // keep the page height while rebuilding so the scroll position doesn't jump
   const g = document.querySelector("#tab-" + tab + " .grid");
   if (g) g.style.minHeight = g.offsetHeight + "px";
+  if (tab === "settings") { if (stg.needsRender) renderSettings(); return; }
+  if (tab === "reticulum") { renderReticulum(); return; }
+  if (tab === "mesh") { renderMesh(); return; }
   ({home: renderHome, mobile: renderMobile, network: renderNetwork, system: renderSystem, messages: renderSms})[tab]();
   buildCharts();
   if (g) requestAnimationFrame(() => { g.style.minHeight = ""; });
@@ -491,10 +605,54 @@ function renderHome() {
   const down = s.services.filter(x => x.state !== "active");
   const ln4 = el("div", "line"); ln4.appendChild(el("span", null, "Services")); ln4.appendChild(el("b", down.length ? "bad" : "good", down.length ? down.length + " not active: " + down.map(x => x.name).join(", ") : "all " + s.services.length + " active")); c4.appendChild(ln4);
   c4.style.cursor = "pointer"; c4.onclick = () => go("system"); g.appendChild(c4);
+  // VoWiFi
+  if (s.ims) {
+    const i = s.ims, cv = card("Wi-Fi Calling", "📞", "green", pill(i.registered ? "registered" : (i.status || "down"), i.registered ? "good" : i.status === "connecting" || i.status === "reconnecting" ? "ok" : "bad"));
+    hero(cv, i.registered ? "VoWiFi" : "offline", i.registered ? "since " + ago(i.since).replace(" ago", "") : (i.last_error_at ? "last error " + ago(i.last_error_at) : ""), i.registered ? "good" : "bad");
+    const last = admin && calls.length ? calls[0] : null;
+    tiles(cv, [["Registrations", String(i.registrations ?? 0)], ["Calls", admin ? String(calls.length) : null]].filter(t => t[1] !== null));
+    if (last) kv(cv, [["Last call", (last.dir === "out" ? "↗ " : "↙ ") + who(last.from) + " · " + last.result + " · " + ago(last.at)]]);
+    cv.style.cursor = "pointer"; cv.onclick = () => go("mobile"); g.appendChild(cv);
+  }
+  // Reticulum
+  if (me.reticulum) {
+    if (!ret && !retAt) loadReticulum(true); // once; afterwards the 10 s timer refreshes it
+    const r = ret, up = r && r.unit.active === "active", ifc = r && r.status ? r.status.interfaces[0] : null;
+    const cr = card("Reticulum", "🕸", "teal", pill(r ? (up ? (ifc && ifc.up ? "online" : "running") : r.unit.active) : "…", r ? (up && ifc && ifc.up ? "good" : "bad") : null));
+    if (r) {
+      let nm = ifc ? String(ifc.name).replace(/^[A-Za-z]+\[(.*)\]$/, "$1") : "no interface";
+      if (REDACT) nm = nm.replace(/[A-Za-z0-9.-]+\.[A-Za-z]{2,}|\d+\.\d+\.\d+\.\d+/g, "transport.example");
+      hero(cr, ifc && ifc.up ? "connected" : "not connected", nm, ifc && ifc.up ? "good" : "bad");
+      const paths = r.status && r.status.tables.find(t => t.name === "Paths");
+      tiles(cr, [["Paths", paths ? String(paths.entries) : null], ["RAM", r.unit.memory != null ? bytes(r.unit.memory) : null]]);
+      const lx = (r.recent || []).find(x => x.kind === "lxmf");
+      if (lx) kv(cr, [["Last LXMF", (lx.ok ? "✅ " : "⚠ ") + (lx.detail || (lx.ok ? "sent" : "failed")) + " · " + ago(lx.at), lx.ok ? "good" : "bad"]]);
+    }
+    cr.style.cursor = "pointer"; cr.onclick = () => go("reticulum"); g.appendChild(cr);
+  }
+  // Meshtastic (muxtastic)
+  if (me.mesh) {
+    if (!mesh && !meshAt) loadMesh(true);
+    const m = mesh && mesh.mux, on = !!(m && m.connected);
+    const cm = card("Meshtastic", "📻", "green", pill(mesh ? (m ? (on ? "connected" : "no node") : mesh.unit.active) : "…", mesh ? (on ? "good" : "bad") : null));
+    if (m) {
+      hero(cm, on && m.node ? (m.node.long_name || m.node.short_name) : "no node", on ? (m.node && m.node.lora ? m.node.lora : "") : (m.details || ""), on ? "good" : "bad");
+      tiles(cm, [["Nodes", m.totals.nodes != null ? String(m.totals.nodes) : null], ["Msgs 24h", m.totals.messages_24h != null ? String(m.totals.messages_24h) : null], ["Apps", String(m.clients.length)]]);
+    } else if (mesh && mesh.error) cm.appendChild(el("div", "err", mesh.error));
+    cm.style.cursor = "pointer"; cm.onclick = () => go("mesh"); g.appendChild(cm);
+  }
+  // flash writes (average since boot; the System tab has the history)
+  {
+    const fw = sy.flash_written_since_boot, perMin = fw != null && sy.uptime_secs > 60 ? fw / 1024 / (sy.uptime_secs / 60) : null;
+    const cf = card("Flash writes", "💾", "yellow", perMin != null ? pill(perMin < 64 ? "low" : perMin < 512 ? "moderate" : "high", perMin < 64 ? "good" : perMin < 512 ? "ok" : "bad") : null);
+    hero(cf, perMin != null ? (perMin >= 1024 ? (perMin / 1024).toFixed(1) + " MiB" : perMin.toFixed(0) + " KiB") : "—", "per minute, average since boot");
+    tiles(cf, [["Since boot", fw != null ? bytes(fw) : null], ["≈ per day", perMin != null ? bytes(perMin * 1024 * 1440) : null], ["ext4 lifetime", sy.ext4_lifetime_kib != null ? bytes(sy.ext4_lifetime_kib * 1024) : null]]);
+    cf.style.cursor = "pointer"; cf.onclick = () => go("system"); g.appendChild(cf);
+  }
   // messages
   if (admin && me.sms_available) {
     const unread = msgs.filter(m => m.dir === "in" && !m.read), c5 = card("Messages", "💬", "mauve", unread.length ? pill(unread.length + " unread", "good") : null);
-    if (msgs.length) { const last = msgs[0]; hero(c5, last.number, new Date(last.timestamp).toLocaleString()); c5.appendChild(el("div", "mut", (last.dir === "out" ? "You: " : "") + last.text.slice(0, 120))); }
+    if (msgs.length) { const last = msgs[0]; hero(c5, who(last.number), new Date(last.timestamp).toLocaleString()); c5.appendChild(el("div", "mut", (last.dir === "out" ? "You: " : "") + last.text.slice(0, 120))); }
     else c5.appendChild(el("div", "empty-note", "No messages in RAM"));
     c5.style.cursor = "pointer"; c5.onclick = () => go("messages"); g.appendChild(c5);
   }
@@ -519,6 +677,8 @@ function renderMobile() {
     l.failed_reason ? ["Failed", l.failed_reason, "bad"] : ["", undefined]], true);
   if (admin) { const a = el("div", "actions"); a.appendChild(actBtn("↻ Reconnect LTE", "lte-reconnect", "Reconnect LTE? This briefly drops the mobile connection (and Tailscale over it).")); c1.appendChild(a); }
   g.appendChild(c1);
+  if (admin && netsel) g.appendChild(netselCard(netsel));
+  if (admin && me.sms_available && me.ussd) g.appendChild(ussdCard());
   if (s.ims) g.appendChild(imsCard(s.ims, admin));
 
   // cells
@@ -658,22 +818,9 @@ function renderNetwork() {
   const c4 = card("WireGuard", "🛡", "green", n ? pill(wgs.length ? wgs.filter(x => x.active).length + " / " + wgs.length + " up" : "no tunnels") : null);
   if (!n) noData(c4, "loading…");
   else if (!wgs.length) c4.appendChild(el("div", "mut small", "No WireGuard tunnels yet." + (admin ? " Import a wg-quick config below." : "")));
-  wgs.forEach(x => {
-    const r = el("div", "netrow"), top = el("div", "top");
-    top.appendChild(el("b", null, x.name)); top.appendChild(pill(x.active ? "up" : "down", x.active ? "good" : "")); if (x.autoconnect) top.appendChild(pill("starts at boot"));
-    r.appendChild(top);
-    if (x.public_key) { const k = el("div", "line"); k.appendChild(el("span", null, "This stick's public key")); const kk = el("span", "mono", x.public_key); k.appendChild(kk);
-      if (admin && navigator.clipboard) { const cb = el("button", "ghost", "📋"); cb.title = "copy"; cb.onclick = () => navigator.clipboard.writeText(x.public_key); k.appendChild(cb); } r.appendChild(k); }
-    x.peers.forEach(p => { const hs2 = p.latest_handshake, stale = !hs2 || Date.now() / 1000 - hs2 > 180;
-      kv(r, [["Peer", p.public_key.slice(0, 12) + "…"], ["Endpoint", admin ? (p.endpoint || "—") : undefined], ["Allowed IPs", p.allowed_ips], ["Handshake", ago(hs2), x.active ? (stale ? "bad" : "good") : ""], ["Traffic", "↓ " + bytes(p.rx_bytes) + "  ↑ " + bytes(p.tx_bytes)]]); });
-    if (admin) { const a = el("div", "actions");
-      const ud = el("button", x.active ? "" : "pri", x.active ? "Stop" : "Start"); ud.disabled = wf.busy; ud.onclick = () => wifiCall("/api/wireguard/action", {name: x.name, action: x.active ? "down" : "up"}); a.appendChild(ud);
-      const ab = el("button", null, x.autoconnect ? "Don't start at boot" : "Start at boot"); ab.disabled = wf.busy; ab.onclick = () => wifiCall("/api/wireguard/action", {name: x.name, action: x.autoconnect ? "autoconnect-off" : "autoconnect-on"}); a.appendChild(ab);
-      const db = el("button", "danger", "Delete"); db.disabled = wf.busy; db.onclick = () => { if (confirm("Delete the WireGuard tunnel " + x.name + "? Its keys are gone afterwards.")) wifiCall("/api/wireguard/action", {name: x.name, action: "delete"}); }; a.appendChild(db);
-      r.appendChild(a); }
-    c4.appendChild(r);
-  });
+  wgs.forEach(x => c4.appendChild(wgTunnel(x, admin)));
   if (admin) {
+    const na = el("div", "actions"), nb = el("button", null, "＋ New tunnel"); nb.disabled = wf.busy; nb.onclick = () => wgOpen(null); na.appendChild(nb); c4.appendChild(na);
     const d = det("wg-import", "＋ Import a tunnel (wg-quick .conf)", "health");
     const f = el("div", "form"); f.style.maxWidth = "none";
     f.appendChild(el("span", "mut", "Name")); f.appendChild(wifiInput("text", "wgname", "e.g. wg-home (a-z 0-9 - _)", {maxLength: 15}));
@@ -751,7 +898,7 @@ async function wifiCall(path, body, okRender) {
   wf.busy = true; wf.msg = "⏳ working… (network changes can take up to a minute)"; wf.msgCls = "mut"; renderNetwork();
   try { const r = await api(path, body ? {method: "POST", json: body} : {}); wf.msg = "✓ " + (r.message || "done"); wf.msgCls = "good"; if (okRender) okRender(r); }
   catch (e) { wf.msg = "✗ " + e.message; wf.msgCls = "bad"; }
-  finally { wf.busy = false; netAt = 0; await refresh(true); await loadNet(true); renderNetwork(); }
+  finally { wf.busy = false; netAt = 0; await refresh(true); await loadNet(true, true); renderNetwork(); }
 }
 function wifiSettings(w) {
   const c = card("Wi-Fi settings", "🛠", "peach", w.mode === "hotspot" ? pill("hotspot active") : w.mode === "client" ? pill("client active") : null);
@@ -877,14 +1024,653 @@ function renderSystem() {
   g.appendChild(c3);
 
   const c4 = card("Services & LEDs", "⚙️", "pink");
-  const svc = el("div", "svc");
-  s.services.forEach(x => { const d = el("div"); d.title = x.name + ": " + x.state; d.appendChild(el("i", "dot " + stateCls(x.state))); d.appendChild(el("span", null, x.name + (x.state === "active" ? "" : " · " + x.state))); svc.appendChild(d); });
-  c4.appendChild(svc);
+  const tw = el("div", "tscroll"), t = el("table", "svctab"), hr = el("tr");
+  ["Service", "RAM", "CPU", "Net in", "Net out"].forEach(h => hr.appendChild(el("th", null, h))); t.appendChild(hr);
+  // rate on top, total since the unit started underneath
+  const netTd = (bps, total) => { const td = el("td");
+    if (total == null) { td.textContent = "—"; return td; }
+    td.appendChild(el("div", null, bps == null ? "…" : bytes(bps) + "/s")); td.appendChild(el("div", "svctot", bytes(total)));
+    td.title = bytes(total) + " since the unit started"; return td; };
+  let anyNet = false, sumIn = 0, sumOut = 0, sumInR = 0, sumOutR = 0;
+  s.services.forEach(x => {
+    const tr = el("tr"), n = el("td"); n.title = x.name + ": " + x.state;
+    n.appendChild(el("i", "dot " + stateCls(x.state))); n.appendChild(document.createTextNode(" " + x.name + (x.state === "active" ? "" : " · " + x.state))); tr.appendChild(n);
+    tr.appendChild(el("td", null, x.memory != null ? bytes(x.memory) : "—"));
+    tr.appendChild(el("td", null, x.cpu_pct != null ? x.cpu_pct.toFixed(1) + " %" : "—"));
+    if (x.ip_in != null) { anyNet = true; sumIn += x.ip_in; sumOut += x.ip_out || 0; sumInR += x.in_bps || 0; sumOutR += x.out_bps || 0; }
+    tr.appendChild(netTd(x.in_bps, x.ip_in)); tr.appendChild(netTd(x.out_bps, x.ip_out)); t.appendChild(tr);
+  });
+  if (anyNet) {
+    const tr = el("tr", "svcsum"); tr.appendChild(el("td", null, "Σ Total")); tr.appendChild(el("td")); tr.appendChild(el("td"));
+    tr.appendChild(netTd(sumInR, sumIn)); tr.appendChild(netTd(sumOutR, sumOut)); t.appendChild(tr);
+  }
+  tw.appendChild(t); c4.appendChild(tw);
+  c4.appendChild(el("div", "mut small", "From systemd's cgroup accounting: RAM includes the unit's page cache, CPU is % of one core over the last refresh. " +
+    (anyNet ? "Network: rate, and below it the total since the unit (re)started (only units with IPAccounting=yes; Σ adds those up)." : "Network needs IPAccounting=yes on the units (systemctl set-property UNIT IPAccounting=yes).")));
   const lw = el("div", "leds");
-  s.leds.forEach(x => { const col = x.name.split(":")[0], d = el("div", "led " + col + (x.on || x.trigger === "timer" ? " on" : "") + (x.trigger === "timer" ? " blink" : ""));
-    d.appendChild(el("i")); d.appendChild(el("span", null, x.name.split(":")[1] + (x.trigger && x.trigger !== "none" ? " · " + x.trigger : ""))); lw.appendChild(d); });
+  s.leds.forEach(x => { const [col, fn] = x.name.includes(":") ? x.name.split(":") : [x.name, x.name], d = el("div", "led " + col + (x.on || x.trigger === "timer" ? " on" : "") + (x.trigger === "timer" ? " blink" : ""));
+    d.appendChild(el("i")); d.appendChild(el("span", null, fn + (x.trigger && x.trigger !== "none" ? " · " + x.trigger : ""))); lw.appendChild(d); });
   c4.appendChild(lw);
   g.appendChild(c4);
+  if (admin) { g.appendChild(notifyCard()); if (!notif.loaded) loadNotify(); }
+}
+
+
+
+// ---------- Reticulum (admin) ----------
+let ret = null, retAt = 0, retErr = "";
+
+// ---------- Meshtastic (muxtastic on the stick) ----------
+let mesh = null, meshAt = 0, meshErr = "";
+async function loadMesh(force) {
+  if (me.role === "none" || !me.mesh) return;
+  if (!force && Date.now() - meshAt < 10000) return;
+  try { mesh = await api("/api/mesh"); meshErr = ""; } catch (e) { meshErr = e.message; }
+  meshAt = Date.now();
+  if (me.role === "admin" && !mcfg.data && !mcfg.err) loadMeshCfg();
+  // don't redraw under someone typing in the settings card
+  const a = document.activeElement;
+  if (tab === "mesh" && a && $("meshGrid").contains(a) && /^(INPUT|SELECT)$/.test(a.tagName)) return;
+  if (tab === "mesh" || tab === "home") renderTab();
+}
+
+// muxtastic settings (admin): node, admin allowlist, history; muxtastic.toml on the stick
+const mcfg = {data: null, draft: null, err: "", msg: "", msgCls: "", busy: false};
+async function loadMeshCfg() {
+  try { mcfg.data = await api("/api/mesh/config"); mcfg.draft = clone(mcfg.data.values); mcfg.draft.admin = mcfg.draft.allow_admin_from.join(", "); mcfg.err = ""; }
+  catch (e) { mcfg.err = e.message; }
+  if (tab === "mesh") renderTab();
+}
+function cidrOf(addr) { // "192.168.4.1/24" -> "192.168.4.0/24"
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/.exec(addr || ""); if (!m) return null;
+  const p = +m[5], ip = ((+m[1] << 24) >>> 0) + (+m[2] << 16) + (+m[3] << 8) + +m[4], mask = p ? (~0 << (32 - p)) >>> 0 : 0, n = (ip & mask) >>> 0;
+  return [n >>> 24, (n >> 16) & 255, (n >> 8) & 255, n & 255].join(".") + "/" + p;
+}
+function meshSettingsCard() {
+  const c = card("muxtastic settings", "⚙️", "overlay1");
+  if (mcfg.err && !mcfg.data) { c.appendChild(el("div", "err", mcfg.err)); return c; }
+  if (!mcfg.data) { c.appendChild(el("div", "hint", "Loading…")); return c; }
+  const v = mcfg.data, d = mcfg.draft, u = mesh.unit, up = u.active === "active";
+  // service
+  const sr = el("div", "line"); sr.appendChild(el("span", null, (mesh.unit_name || "muxtastic") + ".service")); sr.appendChild(pill(u.active, up ? "good" : "bad")); c.appendChild(sr);
+  const sa = el("div", "actions");
+  [["▶ Start", "start", !up], ["↻ Restart", "restart", up], ["⏹ Stop", "stop", up]].forEach(([t, act, show]) => {
+    if (!show) return; const b = el("button", act === "start" ? "pri" : act === "stop" ? "danger" : null, t); b.disabled = mcfg.busy;
+    b.onclick = async () => { if (act === "stop" && !confirm("Stop muxtastic? Apps lose the node until it's started again (it starts again at boot if it's enabled).")) return;
+      mcfg.busy = true; renderTab(); try { await api("/api/mesh/service", {method: "POST", json: {action: act}}); mcfg.msg = "✓ " + act + " done"; mcfg.msgCls = "good"; } catch (e) { mcfg.msg = "⚠ " + e.message; mcfg.msgCls = "bad"; }
+      mcfg.busy = false; setTimeout(() => loadMesh(true), 1500); };
+    sa.appendChild(b); });
+  c.appendChild(sa);
+  if (!v.writable) c.appendChild(el("div", "err", "dongie can't write " + v.path + " (needs group dongie, see contrib/muxtastic). Showing it read-only."));
+
+  const g = el("div", "wggrid"); g.style.marginTop = "10px";
+  const host = wgField(g, "Node address", d.node_host, x => d.node_host = x, {ph: "192.168.4.23 or meshtastic-xxxx", hint: "the Meshtastic node's IP on the hotspot (Wi-Fi + TCP API on)", check: x => /^[A-Za-z0-9.:-]{1,253}$/.test(x)});
+  wgField(g, "Node port", d.node_port || "", x => d.node_port = Number(x) || 0, {ph: "4403", inputmode: "numeric", hint: "4403 on the firmware", check: x => /^\d+$/.test(x) && +x > 0 && +x < 65536});
+  const hc = (status && status.hotspot && status.hotspot.clients || []).filter(x => x.ip);
+  if (hc.length) {
+    const r = el("div", "wide pills"); r.appendChild(el("span", "mut small", "On the hotspot: "));
+    hc.forEach(x => { const b = el("button", "small", (x.hostname && x.hostname !== "*" ? x.hostname + " · " : "") + x.ip); b.onclick = () => { d.node_host = x.ip; host.value = x.ip; }; r.appendChild(b); });
+    g.appendChild(r);
+  }
+  const adm = wgField(g, "Admin allowed from", d.admin, x => d.admin = x, {wide: true, ph: "empty = nobody", hint: "IPs/networks whose apps may send admin packets to the node (change its settings). Comma separated.",
+    check: x => x.split(/[,\s]+/).filter(Boolean).every(y => /^[0-9A-Fa-f:.]+(\/\d{1,3})?$/.test(y))});
+  const qa = el("div", "wide pills");
+  const addNet = n => { const list = d.admin.split(/[,\s]+/).filter(Boolean); n.forEach(x => { if (!list.includes(x)) list.push(x); }); d.admin = list.join(", "); adm.value = d.admin; };
+  const tb = el("button", "small", "＋ Tailnet"); tb.title = "100.64.0.0/10, fd7a:115c:a1e0::/48"; tb.onclick = () => addNet(["100.64.0.0/10", "fd7a:115c:a1e0::/48"]); qa.appendChild(tb);
+  const hs = cidrOf(status && status.hotspot && status.hotspot.address);
+  if (hs) { const hb = el("button", "small", "＋ Hotspot"); hb.title = hs; hb.onclick = () => addNet([hs]); qa.appendChild(hb); }
+  const nb = el("button", "small", "Nobody"); nb.onclick = () => { d.admin = ""; adm.value = ""; }; qa.appendChild(nb);
+  g.appendChild(qa);
+  const hr = el("label", "wgf"); hr.appendChild(el("span", "wgl", "History in RAM")); const sel = el("select");
+  for (let i = 1; i <= 7; i++) { const o = el("option", null, i + (i === 1 ? " day" : " days")); o.value = i; o.selected = d.retention_days === i; sel.appendChild(o); }
+  sel.onchange = () => d.retention_days = +sel.value; hr.appendChild(sel); hr.appendChild(el("span", "wgh", "more days = more RAM (limit 64 MB)")); g.appendChild(hr);
+  const fx = el("div", "wgf"); fx.appendChild(el("span", "wgl", "Ports")); fx.appendChild(el("span", "small", "apps " + (v.app_port ?? "?") + " · web " + (v.web_port ?? "?") + " · " + (v.storage || "?"))); fx.appendChild(el("span", "wgh", "fixed here: the LTE block in muxtastic.service names them")); g.appendChild(fx);
+  c.appendChild(g);
+
+  const a = el("div", "actions"), sv = el("button", "pri", mcfg.busy ? "⏳ Saving…" : "💾 Save" + (up ? " & restart" : "")); sv.disabled = mcfg.busy || !v.writable;
+  sv.onclick = async () => {
+    const body = {node_host: d.node_host.trim(), node_port: d.node_port, allow_admin_from: d.admin.split(/[,\s]+/).filter(Boolean), retention_days: d.retention_days};
+    if (body.allow_admin_from.length && !confirm("Allow admin packets to the node from " + body.allow_admin_from.join(", ") + "? Apps there can change the node's settings, channels and keys.")) return;
+    mcfg.busy = true; mcfg.msg = ""; renderTab();
+    try { const r = await api("/api/mesh/config", {method: "POST", json: body}); mcfg.data = r.config; mcfg.draft = clone(r.config.values); mcfg.draft.admin = mcfg.draft.allow_admin_from.join(", ");
+      mcfg.msg = r.restart_error ? "⚠ saved, but restarting failed: " + r.restart_error : r.restarted ? "✓ saved, muxtastic restarted" : "✓ saved (muxtastic isn't running: start it to use it)"; mcfg.msgCls = r.restart_error ? "bad" : "good"; }
+    catch (e) { mcfg.msg = "⚠ " + e.message; mcfg.msgCls = "bad"; }
+    mcfg.busy = false; setTimeout(() => loadMesh(true), 1500); renderTab();
+  };
+  const rv = el("button", null, "Undo"); rv.onclick = () => { mcfg.draft = clone(mcfg.data.values); mcfg.draft.admin = mcfg.draft.allow_admin_from.join(", "); mcfg.msg = ""; renderTab(); };
+  a.appendChild(sv); a.appendChild(rv); c.appendChild(a);
+  if (mcfg.msg) c.appendChild(el("div", "msgline " + mcfg.msgCls, mcfg.msg));
+  c.appendChild(el("div", "hint", "Written into " + v.path + " (comments kept, previous version as .bak)."));
+  return c;
+}
+setInterval(() => { if (!document.hidden && (tab === "mesh" || tab === "home")) loadMesh(false); }, 10000);
+function renderMesh() {
+  const g = $("meshGrid"); g.textContent = "";
+  if (!mesh) { const c = card("Meshtastic", "📻", "green"); c.appendChild(el("div", meshErr ? "err" : "hint", meshErr || "Loading…")); g.appendChild(c); return; }
+  const u = mesh.unit, m = mesh.mux, on = !!(m && m.connected), admin = me.role === "admin";
+  const ts = status && status.tailscale && status.tailscale.dns_name;
+
+  const c1 = card("Node", "📻", "green", pill(m ? (on ? "connected" : "not connected") : u.active, on ? "good" : "bad"));
+  if (m && m.node) {
+    const h = hero(c1, m.node.long_name || "?", m.node.short_name || "", on ? "good" : "bad");
+    if (m.node.color) h.querySelector(".big").style.color = m.node.color;
+  } else hero(c1, "No node", m ? (m.details || "") : "", "bad");
+  tiles(c1, [["Packets 24h", m && m.totals.packets_24h != null ? String(m.totals.packets_24h) : null], ["Msgs 24h", m && m.totals.messages_24h != null ? String(m.totals.messages_24h) : null],
+    ["Nodes", m && m.totals.nodes != null ? String(m.totals.nodes) : null], ["RAM", u.memory != null ? bytes(u.memory) : null, null, u.memory_max && u.memory / u.memory_max > .8 ? "ok" : "good"]]);
+  const rows = [];
+  if (m && m.node) rows.push(["Firmware", m.node.firmware || "—"], ["Hardware", m.node.hw_model || "—"], ["LoRa", m.node.lora || "—"]);
+  if (admin && m) rows.push(["Node address", String(m.endpoint || "").replace(/^tcp /, "")]);
+  if (m) rows.push(["muxtastic", (m.version ? "v" + m.version : "") + (m.uptime_secs != null ? " · up " + dur(m.uptime_secs) : "") + (m.storage ? " · " + m.storage : "")]);
+  if (u.restarts) rows.push(["Restarts", String(u.restarts), "ok"]);
+  if (rows.length) kv(c1, rows);
+  if (mesh.error) c1.appendChild(el("div", "err", mesh.error));
+  if (m && !on) c1.appendChild(el("div", "hint", admin ? "muxtastic keeps retrying. The node joins the stick's hotspot and needs Wi-Fi with its TCP API on (port 4403); set its address in muxtastic settings below." : "Waiting for the Meshtastic node."));
+  const mlink = mesh.link || (mesh.web_port ? "http://" + (location.hostname.includes(":") ? "[" + location.hostname + "]" : location.hostname) + ":" + mesh.web_port + "/" : null);
+  if (mlink) { const a = el("div", "actions"), b = el("a", null, "Open muxtastic ↗"); b.href = mlink; b.target = "_blank"; b.rel = "noopener"; b.className = "btnlink"; a.appendChild(b); c1.appendChild(a); }
+  g.appendChild(c1);
+
+  const c2 = card("Apps", "📱", "blue", pill(m ? String(m.clients.length) : "—"));
+  if (m && m.clients.length) {
+    m.clients.forEach(c => { const r = el("div", "line"); r.appendChild(el("span", null, (c.peer ? c.peer + " · " : "") + "connected " + dur(c.connected_secs))); r.appendChild(el("b", null, "↓ " + c.tx_frames + "  ↑ " + c.rx_frames + " frames")); c2.appendChild(r); });
+  } else c2.appendChild(el("div", "mut small", "No app connected."));
+  c2.appendChild(el("div", "hint", "Point the Meshtastic app (or any TCP client) at " + (location.hostname || "this stick") + (ts && ts !== location.hostname ? " (or " + ts + ")" : "") + ", port 4404 — from the hotspot, USB or Tailscale, never from the LTE side. Remote admin of the node is blocked."));
+  g.appendChild(c2);
+
+  const c3 = card("Heard nodes", "🛰", "teal", m ? pill(String(m.totals.nodes ?? m.heard.length)) : null);
+  if (m && m.heard.length) {
+    const list = el("div", "wgpeers");
+    m.heard.forEach(n => {
+      const r = el("div", "wgp"), fresh = Date.now() / 1000 - (n.last_heard || 0) < 900;
+      r.appendChild(wgAvatar({name: n.short || n.name || "?", public_key: n.id || n.name || ""}, fresh ? "good" : "ok"));
+      const mm = el("div", "wgm"), nm = el("div", "wgn"); nm.appendChild(el("b", null, n.name || n.id || "?")); if (n.short) nm.appendChild(el("span", "mono mut", n.short)); mm.appendChild(nm);
+      mm.appendChild(el("div", "wgsub", [n.hardware, n.hops != null ? (n.hops === 0 ? "direct" : n.hops + " hop" + (n.hops === 1 ? "" : "s")) : null, n.via_mqtt ? "via MQTT" : null, n.battery != null ? "🔋 " + (n.battery > 100 ? "powered" : n.battery + " %") : null].filter(Boolean).join("  ·  ")));
+      r.appendChild(mm);
+      const s = el("div", "wgs"); s.appendChild(el("div", fresh ? "good" : "", ago(n.last_heard))); if (n.snr != null) s.appendChild(el("div", "mut small", "SNR " + n.snr.toFixed(1) + " dB")); r.appendChild(s);
+      list.appendChild(r);
+    });
+    c3.appendChild(list);
+  } else c3.appendChild(el("div", "mut small", "Nothing heard yet."));
+  g.appendChild(c3);
+
+  if (admin) {
+    const c4 = card("Messages", "💬", "mauve");
+    if (m && m.messages.length) {
+      m.messages.forEach(x => { const r = el("div", "netrow"), top = el("div", "top");
+        top.appendChild(el("b", null, x.sender || "?")); top.appendChild(pill(x.channel || "?")); top.appendChild(el("span", "mut small", ago(x.at) + (x.snr != null ? " · SNR " + x.snr.toFixed(1) : "") + (x.hops != null ? " · " + x.hops + " hop" + (x.hops === 1 ? "" : "s") : "")));
+        r.appendChild(top); r.appendChild(el("div", null, x.text || "")); c4.appendChild(r); });
+    } else c4.appendChild(el("div", "mut small", "No messages yet."));
+    c4.appendChild(el("div", "hint", "Kept in RAM only" + (mcfg.data ? " (" + mcfg.data.values.retention_days + (mcfg.data.values.retention_days === 1 ? " day" : " days") + ")" : "") + ", like everything muxtastic stores on the stick."));
+    g.appendChild(c4);
+    g.appendChild(meshSettingsCard());
+  }
+}
+async function loadReticulum(force) {
+  if (me.role === "none" || !me.reticulum) return;
+  if (!force && Date.now() - retAt < 10000) return;
+  try { ret = await api("/api/reticulum"); retErr = ""; } catch (e) { retErr = e.message; }
+  retAt = Date.now(); if (tab === "reticulum" || tab === "home") renderTab();
+}
+setInterval(() => { if (!document.hidden && (tab === "reticulum" || tab === "home")) loadReticulum(false); }, 10000);
+function rate(bps) { return bps == null ? "—" : bytes(bps / 8) + "/s"; }
+function renderReticulum() {
+  const g = $("reticulumGrid"); g.textContent = "";
+  if (!ret) { const c = card("Reticulum", "🕸", "teal"); c.appendChild(el("div", retErr ? "err" : "hint", retErr || "Loading…")); g.appendChild(c); return; }
+  const u = ret.unit, up = u.active === "active", st = ret.status;
+
+  const c1 = card("Daemon", "🕸", "teal", pill(u.active + (u.sub && u.sub !== u.active ? " · " + u.sub : ""), up ? "good" : "bad"));
+  hero(c1, up ? (st ? "Online" : "running") : "Stopped", ret.unit_name + ".service" + (u.since ? " · since " + u.since : ""), up ? "good" : "bad");
+  tiles(c1, [["RAM", u.memory != null ? bytes(u.memory) : null, null, u.memory_max && u.memory / u.memory_max > .8 ? "ok" : "good"], ["Limit", u.memory_max ? bytes(u.memory_max) : "none"], ["Restarts", u.restarts != null ? String(u.restarts) : null],
+    ["Traffic", st ? bytes((st.rxb || 0) + (st.txb || 0)) : null]]);
+  if (ret.error) c1.appendChild(el("div", "err", ret.error));
+  if (ret.versions && ret.versions.length) kv(c1, ret.versions.map(v => [v.name, v.version + (v.commit ? " · " + v.commit.slice(0, 8) : "")]));
+  c1.appendChild(el("div", "mut small", "Leviculum (Rust Reticulum); dongie's build carries local patches, see contrib/lnsd/patches."));
+  if (me.role === "admin") {
+    const a = el("div", "actions"), b = el("button", null, "↻ Restart");
+    b.onclick = async () => { if (!confirm("Restart " + ret.unit_name + "? Paths are relearned from the network afterwards.")) return; b.disabled = true; try { await api("/api/reticulum/restart", {method: "POST"}); } catch (e) { alert("Restart failed: " + e.message); } setTimeout(() => loadReticulum(true), 3000); };
+    a.appendChild(b); c1.appendChild(a);
+  }
+  g.appendChild(c1);
+
+  const c2 = card("Interfaces", "🔌", "blue");
+  const ifs = st ? st.interfaces : [];
+  if (!ifs.length) c2.appendChild(el("div", "hint", st ? "No network interfaces configured." : "No status from the daemon."));
+  ifs.forEach(i => {
+    let name = String(i.name).replace(/^[A-Za-z]+\[(.*)\]$/, "$1");
+    if (REDACT) name = name.replace(/[A-Za-z0-9.-]+\.[A-Za-z]{2,}|\d+\.\d+\.\d+\.\d+/g, "transport.example");
+    hero(c2, name, i.type, i.up ? "good" : "bad");
+    tiles(c2, [["Status", i.up ? "up" : "down", null, i.up ? "good" : "bad"], ["Received", bytes(i.rxb)], ["Sent", bytes(i.txb)], ["Announces", i.announces_in_per_s != null ? i.announces_in_per_s.toFixed(1) : null, "/s"]]);
+    kv(c2, [["Now", rate(i.rxs) + " in · " + rate(i.txs) + " out"]]);
+  });
+  g.appendChild(c2);
+
+  const c3 = card("Tables", "📚", "mauve");
+  if (st && st.tables.length) st.tables.forEach(t => { kv(c3, [[t.name, t.entries + " / " + t.capacity]]); bar(c3, t.entries / Math.max(1, t.capacity)); });
+  else c3.appendChild(el("div", "hint", "No table sizes (needs Leviculum lnsd)."));
+  c3.appendChild(el("div", "mut small", "In RAM, capped by the daemon's storage profile. Full tables drop their oldest entries."));
+  g.appendChild(c3);
+
+  const c4 = card("Storage (RAM)", "💾", "yellow");
+  if (!ret.storage.length) c4.appendChild(el("div", "hint", "No tmpfs mounts found."));
+  ret.storage.forEach(m => {
+    kv(c4, [[m.path, bytes(m.used_kb * 1024) + " / " + bytes(m.size_kb * 1024) + " · " + m.inodes_used + " / " + m.inodes + " files"]]);
+    bar(c4, Math.max(m.used_kb / Math.max(1, m.size_kb), m.inodes_used / Math.max(1, m.inodes)));
+  });
+  c4.appendChild(el("div", "mut small", "tmpfs with a hard size cap: nothing goes to flash. Stale ratchet files are pruned every 5 minutes."));
+  g.appendChild(c4);
+
+  const c5 = card("LXMF", "✉️", "pink", ret.lxmf.targets == null ? null : pill(ret.lxmf.targets ? ret.lxmf.targets + " target" + (ret.lxmf.targets > 1 ? "s" : "") : "no targets", ret.lxmf.targets ? "good" : null));
+  if (ret.lxmf.address) { hero(c5, ret.lxmf.name || "", "sender name"); const ad = el("code", "addr", REDACT ? ret.lxmf.address.slice(0, 4) + "••••••••••••••••••••••••" + ret.lxmf.address.slice(-4) : ret.lxmf.address); ad.title = "This stick's LXMF address"; c5.appendChild(ad); }
+  else c5.appendChild(el("div", "hint", "No LXMF identity yet: it is created with the first LXMF notification."));
+  const rec = ret.recent || [];
+  if (rec.length) {
+    const tw = el("div", "tscroll"), t = el("table"), hr = el("tr"); ["When", "Target", "Event", "Result"].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+    rec.slice(0, 10).forEach(r => { const tr = el("tr"); tr.appendChild(el("td", null, ago(r.at))); tr.appendChild(el("td", null, REDACT ? r.kind + " target" : r.target)); tr.appendChild(el("td", null, r.event));
+      const td = el("td"); td.appendChild(pill((r.ok ? "✅ " : "⚠ ") + (r.detail || (r.ok ? "sent" : "failed")), r.ok ? (/propagation|not confirmed/.test(r.detail) ? "ok" : "good") : "bad")); tr.appendChild(td); t.appendChild(tr); });
+    tw.appendChild(t); c5.appendChild(el("div", "hint", "Latest notifications (all kinds, RAM only):")); c5.appendChild(tw);
+  }
+  g.appendChild(c5);
+}
+
+
+// ---------- WireGuard editor (admin, in a dialog so network refreshes can't wipe it) ----------
+const wge = {name: null, isNew: false, data: null, d: null, err: "", busy: false};
+const csv = s => s.split(/[,\s]+/).map(x => x.trim()).filter(Boolean);
+function wgDialog() {
+  let dlg = $("wgDlg");
+  if (!dlg) { dlg = document.createElement("dialog"); dlg.id = "wgDlg"; dlg.className = "wgdlg"; document.body.appendChild(dlg); }
+  return dlg;
+}
+async function wgOpen(name) {
+  Object.assign(wge, {name, isNew: !name, data: null, err: "", busy: false, filter: ""});
+  if (name) {
+    try { wge.data = await api("/api/wireguard/config/" + encodeURIComponent(name)); }
+    catch (e) { alert("Can't load " + name + ": " + e.message); return; }
+  } else wge.data = {name: "", private_key_set: false, public_key: null, listen_port: 0, mtu: 0, addresses: [], peers: []};
+  const v = wge.data;
+  wge.d = {name: v.name, listen_port: v.listen_port, mtu: v.mtu, addresses: v.addresses.join(", "), private_key: null, newkey: "",
+    peers: v.peers.map(p => ({_open: false, name: p.name || "", public_key: p.public_key, endpoint: p.endpoint, allowed_ips: p.allowed_ips.join(", "), keepalive: p.keepalive, psk_set: p.psk_set, psk: undefined}))};
+  wgRender(); wgDialog().showModal();
+}
+// tunnel card on the Network tab
+const WG_FRESH = 180; // s: WireGuard re-handshakes every 2 min while traffic flows
+function wgPeerState(p, up) { if (!up) return ""; const h = p.latest_handshake; return !h ? "bad" : Date.now() / 1000 - h <= WG_FRESH ? "good" : "ok"; }
+function wgAvatar(p, state) {
+  const a = el("span", "wgav"); let h = 0; for (const ch of p.public_key || "") h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  a.style.setProperty("--c", "var(--" + BAND_COLORS[h % BAND_COLORS.length] + ")");
+  const n = (p.name || "").trim(); a.appendChild(document.createTextNode(n ? Array.from(n)[0].toUpperCase() : "🔑"));
+  if (state !== undefined) { const d = el("i", "dot " + state); d.title = {good: "handshake in the last 3 min", ok: "no handshake for over 3 min", bad: "never had a handshake", "": "tunnel is down"}[state]; a.appendChild(d); }
+  return a;
+}
+function wgCopy(text) { const b = el("button", "ghost small", "📋"); b.title = "copy"; b.onclick = () => { navigator.clipboard.writeText(text); b.textContent = "✓"; setTimeout(() => b.textContent = "📋", 1200); }; return b; }
+function wgPeerRow(p, up, admin) {
+  const st = wgPeerState(p, up), r = el("div", "wgp"); r.appendChild(wgAvatar(p, st));
+  const m = el("div", "wgm"), nm = el("div", "wgn");
+  if (p.name) { nm.appendChild(el("b", null, p.name)); nm.appendChild(el("span", "mono mut", p.public_key.slice(0, 8) + "…")); }
+  else nm.appendChild(el("span", "mono", p.public_key.slice(0, 16) + "…"));
+  m.appendChild(nm);
+  m.appendChild(el("div", "wgsub", [p.allowed_ips || "no allowed IPs", admin && p.endpoint ? "↔ " + p.endpoint : null].filter(Boolean).join("  ·  ")));
+  r.appendChild(m);
+  const s = el("div", "wgs");
+  s.appendChild(el("div", st === "good" ? "good" : st === "bad" ? "bad" : "", p.latest_handshake ? ago(p.latest_handshake) : up ? "no handshake" : "—"));
+  if (p.rx_bytes || p.tx_bytes) s.appendChild(el("div", "mut small", "↓ " + bytes(p.rx_bytes) + " ↑ " + bytes(p.tx_bytes)));
+  r.appendChild(s); return r;
+}
+function wgTunnel(x, admin) {
+  const t = el("div", "wgt" + (x.active ? " up" : "")), top = el("div", "wgtop");
+  top.appendChild(el("span", "wgic", "🛡"));
+  const online = x.peers.filter(p => wgPeerState(p, x.active) === "good").length;
+  const rx = x.peers.reduce((a, p) => a + (p.rx_bytes || 0), 0), tx = x.peers.reduce((a, p) => a + (p.tx_bytes || 0), 0);
+  const ttl = el("div", "wgttl"); ttl.appendChild(el("b", null, x.name));
+  ttl.appendChild(el("span", "mut small", x.peers.length + (x.peers.length === 1 ? " peer" : " peers") + (x.active ? " · " + online + " online · ↓ " + bytes(rx) + " ↑ " + bytes(tx) : "")));
+  top.appendChild(ttl);
+  const pl = el("span", "pills"); pl.appendChild(pill(x.active ? "● up" : "○ down", x.active ? "good" : "")); if (x.autoconnect) pl.appendChild(pill("at boot")); top.appendChild(pl);
+  t.appendChild(top);
+  if (x.public_key) {
+    const k = el("div", "wgkey"); k.appendChild(el("span", "mut", "🔑 This stick")); k.appendChild(el("code", null, x.public_key));
+    if (admin && navigator.clipboard) k.appendChild(wgCopy(x.public_key));
+    t.appendChild(k);
+  }
+  // most recently seen first; the long tail folds away
+  const peers = x.peers.slice().sort((a, b) => (b.latest_handshake || 0) - (a.latest_handshake || 0) || (a.name || "~").localeCompare(b.name || "~"));
+  const SHOW = 6, list = el("div", "wgpeers");
+  if (!peers.length) list.appendChild(el("div", "mut small", "No peers."));
+  peers.slice(0, SHOW).forEach(p => list.appendChild(wgPeerRow(p, x.active, admin)));
+  if (peers.length > SHOW) {
+    const d = det("wg-more-" + x.name, "Show " + (peers.length - SHOW) + " more", "wgmore");
+    peers.slice(SHOW).forEach(p => d.appendChild(wgPeerRow(p, x.active, admin)));
+    list.appendChild(d);
+  }
+  t.appendChild(list);
+  if (admin) {
+    const a = el("div", "actions wgact");
+    const ud = el("button", x.active ? "" : "pri", x.active ? "Stop" : "▶ Start"); ud.disabled = wf.busy; ud.onclick = () => wifiCall("/api/wireguard/action", {name: x.name, action: x.active ? "down" : "up"}); a.appendChild(ud);
+    const eb = el("button", null, "✏️ Edit"); eb.disabled = wf.busy; eb.onclick = () => wgOpen(x.name); a.appendChild(eb);
+    const ab = el("button", null, x.autoconnect ? "Don't start at boot" : "Start at boot"); ab.disabled = wf.busy; ab.onclick = () => wifiCall("/api/wireguard/action", {name: x.name, action: x.autoconnect ? "autoconnect-off" : "autoconnect-on"}); a.appendChild(ab);
+    const db = el("button", "danger", "🗑 Delete"); db.style.marginLeft = "auto"; db.disabled = wf.busy; db.onclick = () => { if (confirm("Delete the WireGuard tunnel " + x.name + "? Its keys are gone afterwards.")) wifiCall("/api/wireguard/action", {name: x.name, action: "delete"}); }; a.appendChild(db);
+    t.appendChild(a);
+  }
+  return t;
+}
+
+// editor fields: label above the input, laid out in a responsive grid
+const WG_KEY = /^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$/;
+function wgField(parent, label, value, oninput, o = {}) {
+  const r = el("label", "wgf" + (o.wide ? " wide" : "")), i = el("input"); i.value = value ?? ""; if (o.ph) i.placeholder = o.ph; if (o.type) i.type = o.type; if (o.mono) i.className = "mono";
+  if (o.inputmode) i.inputMode = o.inputmode;
+  const chk = () => i.classList.toggle("invalid", !!(o.check && i.value.trim() && !o.check(i.value.trim())));
+  i.autocomplete = "off"; i.spellcheck = false; i.oninput = () => { oninput(i.value); chk(); if (o.live) o.live(i.value); }; chk();
+  const l = el("span", "wgl", label); if (o.after) { l.appendChild(o.after); } r.appendChild(l); r.appendChild(i); if (o.hint) r.appendChild(el("span", "wgh", o.hint));
+  parent.appendChild(r); return i;
+}
+function wgRender() {
+  const dlg = wgDialog(), d = wge.d, v = wge.data, keepScroll = dlg.querySelector(".wgbody")?.scrollTop || 0; dlg.textContent = "";
+  const f = el("div", "wgform");
+
+  const hd = el("div", "wghead"); hd.appendChild(el("span", "wgic big", "🛡"));
+  const ht = el("div", "wgttl"); ht.appendChild(el("b", null, wge.isNew ? "New WireGuard tunnel" : wge.name));
+  ht.appendChild(el("span", "mut small", wge.isNew ? "a key pair is made for the stick on save" : d.peers.length + (d.peers.length === 1 ? " peer" : " peers") + " · edit and save"));
+  hd.appendChild(ht);
+  const x = el("button", "ghost", "✕"); x.title = "close without saving"; x.onclick = () => wgDialog().close(); hd.appendChild(x);
+  f.appendChild(hd);
+
+  const body = el("div", "wgbody");
+  // --- this stick
+  const sec = el("div", "wgsec"); sec.appendChild(el("h4", null, "🔧 This stick"));
+  const grid = el("div", "wggrid");
+  if (wge.isNew) wgField(grid, "Tunnel name", d.name, x => d.name = x, {ph: "wg-home", hint: "a-z 0-9 - _, max 15", wide: true, check: x => /^[A-Za-z0-9_-]{1,15}$/.test(x)});
+  if (v.public_key && d.private_key === null) {
+    const k = el("div", "wgkey wide"); k.appendChild(el("span", "mut", "🔑 Public key")); k.appendChild(el("code", null, v.public_key));
+    if (navigator.clipboard) k.appendChild(wgCopy(v.public_key));
+    grid.appendChild(k);
+  }
+  const kr = el("div", "wgkeyrow wide"); kr.appendChild(el("span", "mut", "🔒 Private key"));
+  const kstate = d.private_key === "generate" ? "✨ a new key pair is made on save" : d.private_key === "set" ? "" : wge.isNew ? "✨ made on save" : v.private_key_set ? "✓ set (kept)" : "⚠ not set";
+  if (kstate) kr.appendChild(el("span", d.private_key === "generate" ? "ok" : v.private_key_set || wge.isNew ? "good" : "bad", kstate));
+  if (d.private_key === "set") { const i = el("input"); i.type = "password"; i.placeholder = "paste this stick's private key"; i.value = d.newkey; i.autocomplete = "off"; i.oninput = () => { d.newkey = i.value; i.classList.toggle("invalid", !!(i.value.trim() && !WG_KEY.test(i.value.trim()))); }; kr.appendChild(i); }
+  if (!wge.isNew) {
+    const sp = el("span", "wgsp"); kr.appendChild(sp);
+    if (d.private_key === null) {
+      const g = el("button", "small", "🎲 New key pair"); g.onclick = () => { if (confirm("Make a new key pair for this stick? Every peer then needs the new public key, or the tunnel stops working.")) { d.private_key = "generate"; wgRender(); } }; kr.appendChild(g);
+      const pk = el("button", "small", "📥 Paste a key"); pk.onclick = () => { d.private_key = "set"; wgRender(); }; kr.appendChild(pk);
+    } else { const k = el("button", "small", "↩ Keep current"); k.onclick = () => { d.private_key = null; d.newkey = ""; wgRender(); }; kr.appendChild(k); }
+  }
+  grid.appendChild(kr);
+  wgField(grid, "Addresses", d.addresses, x => d.addresses = x, {ph: "10.0.0.2/24, fd00::2/64", wide: true, hint: "this stick's IPs inside the tunnel, comma separated"});
+  wgField(grid, "Listen port", d.listen_port || "", x => d.listen_port = Number(x) || 0, {ph: "random", inputmode: "numeric", check: x => /^\d+$/.test(x) && +x < 65536});
+  wgField(grid, "MTU", d.mtu || "", x => d.mtu = Number(x) || 0, {ph: "automatic", inputmode: "numeric", check: x => /^\d+$/.test(x) && +x >= 576 && +x <= 9000});
+  sec.appendChild(grid); body.appendChild(sec);
+
+  // --- peers
+  const ps = el("div", "wgsec"), ph = el("h4", null, "👥 Peers "); ph.appendChild(el("span", "pill", String(d.peers.length))); ps.appendChild(ph);
+  let filter = null;
+  if (d.peers.length > 4) {
+    filter = el("input", "wgfilter"); filter.placeholder = "🔍 find a peer (name, key, IP)"; filter.value = wge.filter || ""; filter.autocomplete = "off";
+    ps.appendChild(filter);
+  }
+  if (!d.peers.length) ps.appendChild(el("div", "wgempty", "No peers yet: the tunnel can't talk to anyone. Add one below 👇"));
+  const boxes = [];
+  d.peers.forEach((p, i) => {
+    const box = el("details", "wgpeer"); box.open = !!p._open; box.ontoggle = () => { p._open = box.open; };
+    const sm = el("summary"); sm.appendChild(wgAvatar(p));
+    const m = el("div", "wgm"), nm = el("div", "wgn");
+    nm.appendChild(el("b", null, p.name || (p.public_key ? "unnamed" : "new peer"))); if (p.public_key) nm.appendChild(el("span", "mono mut", p.public_key.slice(0, 8) + "…"));
+    m.appendChild(nm); m.appendChild(el("div", "wgsub", [p.allowed_ips || "no allowed IPs", p.endpoint ? "↔ " + p.endpoint : null].filter(Boolean).join("  ·  ")));
+    sm.appendChild(m);
+    const flags = el("span", "pills"); if (p.psk_set || p.psk) flags.appendChild(pill("🔐 psk")); if (/(^|[,\s])(0\.0\.0\.0\/0|::\/0)([,\s]|$)/.test(p.allowed_ips)) flags.appendChild(pill("all traffic", "ok")); sm.appendChild(flags);
+    const rm = el("button", "ghost small danger", "🗑"); rm.title = "remove this peer"; rm.onclick = e => { e.preventDefault(); if (!p.public_key || confirm("Remove " + (p.name || "this peer") + "? (only on save)")) { d.peers.splice(i, 1); wgRender(); } }; sm.appendChild(rm);
+    box.appendChild(sm);
+    const g = el("div", "wggrid");
+    wgField(g, "Name", p.name, x => p.name = x, {ph: "e.g. Home router, Phone 📱", hint: "optional, max 40", check: x => Array.from(x).length <= 40 && !/[\u0000-\u001f\u007f]/.test(x), live: x => { nm.firstChild.textContent = x || "unnamed"; }});
+    wgField(g, "Keepalive", p.keepalive || "", x => p.keepalive = Number(x) || 0, {ph: "off", inputmode: "numeric", hint: "seconds, 25 behind NAT", check: x => /^\d+$/.test(x) && +x < 65536});
+    wgField(g, "Public key", p.public_key, x => p.public_key = x.trim(), {ph: "the peer's public key (44 characters)", mono: true, wide: true, check: x => WG_KEY.test(x)});
+    wgField(g, "Endpoint", p.endpoint, x => p.endpoint = x.trim(), {ph: "vpn.example.org:51820", hint: "empty = the peer connects to us", wide: true});
+    wgField(g, "Allowed IPs", p.allowed_ips, x => p.allowed_ips = x, {ph: "10.0.0.0/24, fd00::/64", hint: "networks reached through this peer", wide: true});
+    const after = p.psk_set && p.psk === undefined ? (() => { const b = el("button", "ghost small danger", "remove"); b.onclick = e => { e.preventDefault(); p.psk = ""; p.psk_set = false; wgRender(); }; return b; })() : null;
+    wgField(g, "Preshared key", p.psk || "", x => { p.psk = x === "" ? undefined : x; }, {type: "password", wide: true, ph: p.psk_set ? "set ✓ (empty = keep)" : p.psk === "" ? "removed on save" : "optional", after, check: x => WG_KEY.test(x)});
+    if (/(^|[,\s])(0\.0\.0\.0\/0|::\/0)([,\s]|$)/.test(p.allowed_ips)) g.appendChild(el("div", "wgwarn wide", "⚠ 0.0.0.0/0 or ::/0: all traffic of that family goes through this tunnel while it's up."));
+    box.appendChild(g); ps.appendChild(box);
+    boxes.push([box, [p.name, p.public_key, p.allowed_ips, p.endpoint].join(" ").toLowerCase()]);
+  });
+  if (filter) { const apply = () => { const q = filter.value.trim().toLowerCase(); wge.filter = filter.value; boxes.forEach(([b, t]) => b.hidden = !!q && !t.includes(q)); }; filter.oninput = apply; apply(); }
+  const ap = el("button", "wgadd", "＋ Add peer"); ap.onclick = () => { wge.filter = ""; d.peers.push({name: "", public_key: "", endpoint: "", allowed_ips: "", keepalive: 25, psk_set: false, psk: undefined, _open: true}); wgRender(); const b = dlg.querySelector(".wgbody"); b.scrollTop = b.scrollHeight; };
+  ps.appendChild(ap);
+  body.appendChild(ps);
+  f.appendChild(body);
+
+  const ft = el("div", "wgfoot");
+  if (wge.err) ft.appendChild(el("div", "err", "⚠ " + wge.err));
+  if (!wge.isNew) ft.appendChild(el("div", "hint", "If the tunnel is up, it restarts with the new settings (a short interruption). Private keys never leave the stick."));
+  const a = el("div", "actions"), cc = el("button", null, "Cancel"); cc.onclick = () => wgDialog().close();
+  const sv = el("button", "pri", wge.busy ? "⏳ Saving…" : wge.isNew ? "✨ Create" : "💾 Save"); sv.disabled = wge.busy; sv.onclick = wgSave;
+  a.appendChild(cc); a.appendChild(sv); ft.appendChild(a); f.appendChild(ft);
+  dlg.appendChild(f);
+  body.scrollTop = keepScroll;
+}
+async function wgSave() {
+  const d = wge.d;
+  const body = {listen_port: d.listen_port, mtu: d.mtu, addresses: csv(d.addresses),
+    peers: d.peers.map(p => { const o = {name: (p.name || "").trim(), public_key: p.public_key, endpoint: p.endpoint, allowed_ips: csv(p.allowed_ips), keepalive: p.keepalive}; if (p.psk !== undefined) o.psk = p.psk; return o; })};
+  if (d.private_key === "generate") body.private_key = "generate";
+  if (d.private_key === "set") { if (!d.newkey.trim()) { wge.err = "paste the private key, or keep the current one"; wgRender(); return; } body.private_key = d.newkey.trim(); }
+  wge.busy = true; wge.err = ""; wgRender();
+  try {
+    if (wge.isNew) await api("/api/wireguard/create", {method: "POST", json: Object.assign({name: d.name.trim()}, body)});
+    else await api("/api/wireguard/config/" + encodeURIComponent(wge.name), {method: "POST", json: body});
+    wgDialog().close(); wf.msg = "✓ " + (wge.isNew ? "created " + d.name.trim() + " (not started)" : "saved " + wge.name); wf.msgCls = "good";
+    netAt = 0; await loadNet(true, true); renderNetwork();
+  } catch (e) { wge.err = e.message; }
+  finally { wge.busy = false; if (wgDialog().open) wgRender(); }
+}
+
+// ---------- settings (admin) ----------
+const stg = {data: null, draft: null, err: "", msg: "", busy: false, needsRender: true, tests: {}};
+const clone = v => JSON.parse(JSON.stringify(v));
+async function loadSettings() {
+  if (me.role !== "admin") return;
+  try {
+    stg.data = await api("/api/settings");
+    // remember each saved target's position: its stored token belongs to that one
+    stg.data.values.notify.forEach((t, i) => { t._orig = i; });
+    stg.draft = clone(stg.data.values); stg.err = ""; stg.tests = {};
+  }
+  catch (e) { stg.err = e.message; }
+  stg.needsRender = true; if (tab === "settings") renderSettings();
+}
+function changedKeys() {
+  return Object.keys(stg.draft || {}).filter(k => JSON.stringify(stg.draft[k]) !== JSON.stringify(stg.data.values[k]));
+}
+function stgBadge(k) {
+  const d = stg.data, w = el("span", "stg-badge");
+  if (d.overridden.includes(k)) {
+    w.appendChild(el("span", "pill ok", "set here"));
+    const r = el("button", "small", "↺"); r.title = "Back to the value from config.toml (or the default)";
+    r.onclick = () => saveSettings({[k]: null}); w.appendChild(r);
+  } else if (d.in_config.includes(k)) w.appendChild(el("span", "pill", "config.toml"));
+  return w;
+}
+function stgRow(c, label, k, input, hint) {
+  const row = el("div", "stg-row"), l = el("label", null, label);
+  row.appendChild(l); row.appendChild(input); row.appendChild(stgBadge(k));
+  if (hint) row.appendChild(el("div", "hint", hint));
+  c.appendChild(row);
+}
+function stgText(k, opts = {}) {
+  const i = el("input"); const v = stg.draft[k];
+  i.value = Array.isArray(v) ? v.join(", ") : v ?? ""; if (opts.ph) i.placeholder = opts.ph;
+  if (opts.num) i.inputMode = "numeric";
+  i.oninput = () => {
+    const t = i.value.trim();
+    stg.draft[k] = opts.list ? t.split(",").map(x => x.trim()).filter(Boolean) : opts.num ? (t === "" ? "" : Number(t)) : i.value;
+    stgDirty();
+  };
+  return i;
+}
+function stgCheck(k) {
+  const i = el("input"); i.type = "checkbox"; i.checked = !!stg.draft[k];
+  i.onchange = () => { stg.draft[k] = i.checked; stgDirty(); };
+  return i;
+}
+function stgDirty() { const n = changedKeys().length, b = $("stgSave"); if (b) { b.disabled = !n || stg.busy; b.textContent = n ? "Save " + n + " change" + (n > 1 ? "s" : "") : "Saved"; } }
+function renderSettings() {
+  stg.needsRender = false;
+  const g = $("settingsGrid"); g.textContent = "";
+  if (stg.err && !stg.data) { const c = card("Settings", "⚙️", "overlay1"); c.appendChild(el("div", "err", stg.err)); g.appendChild(c); return; }
+  if (!stg.data) return;
+  const d = stg.data;
+
+  const top = card("Settings", "⚙️", "overlay1");
+  top.appendChild(el("div", "hint", "Changes go to " + "settings.toml" + " in dongie's state directory and override config.toml key by key (↺ goes back). Saving restarts dongie (a few seconds)."));
+  if (d.pending != null) {
+    const p = el("div", "stg-pending");
+    p.appendChild(el("b", null, "⏳ Listen addresses changed: confirm within " + d.pending + " s, or the previous settings come back by themselves."));
+    const b = el("button", "pri", "✅ Keep the new addresses");
+    b.onclick = async () => { try { await api("/api/settings/confirm", {method: "POST"}); stg.msg = "✅ Kept."; } catch (e) { stg.err = e.message; } loadSettings(); };
+    p.appendChild(b); top.appendChild(p);
+  }
+  if (stg.msg) top.appendChild(el("div", "hint", stg.msg));
+  if (stg.err) top.appendChild(el("div", "err", stg.err));
+  const a = el("div", "actions"), sv = el("button", "pri", "Saved"); sv.id = "stgSave"; sv.disabled = true;
+  sv.onclick = () => { const ch = {}; changedKeys().forEach(k => ch[k] = stg.draft[k]); saveSettings(ch); };
+  const un = el("button", null, "Undo changes"); un.onclick = () => { stg.draft = clone(d.values); stg.err = ""; renderSettings(); };
+  a.appendChild(sv); a.appendChild(un); top.appendChild(a);
+  g.appendChild(top);
+
+  const c1 = card("General", "🐹", "mauve");
+  stgRow(c1, "Dashboard without login (guest view)", "anonymous_guest", stgCheck("anonymous_guest"));
+  stgRow(c1, "Keep SMS + call log across restarts", "persist", stgCheck("persist"), "Compressed and checksummed in the state directory; off = RAM only. Contacts are always kept.");
+  stgRow(c1, "USSD codes", "ussd", stgCheck("ussd"), "⚠ The modem leaves LTE for 3G for USSD: data and Tailscale stall for ~20-30 s; on the UZ801 the reply often never comes.");
+  stgRow(c1, "Refresh every (s)", "poll_secs", stgText("poll_secs", {num: true}));
+  stgRow(c1, "SMS kept (max)", "max_messages", stgText("max_messages", {num: true}));
+  g.appendChild(c1);
+
+  const c2 = card("Access", "🔐", "red");
+  c2.appendChild(el("div", "hint", "⚠ A wrong address can lock you out. After saving, confirm from the new address within " + d.confirm_secs + " s; otherwise the old settings come back by themselves."));
+  stgRow(c2, "Web UI address", "web_listen", stgText("web_listen", {ph: "100.x.y.z:8040"}), "ip:port, normally the Tailscale IP.");
+  stgRow(c2, "More web UI addresses", "web_listen_extra", stgText("web_listen_extra", {list: true, ph: "192.168.4.1:8040, …"}), "Comma separated, e.g. hotspot or USB address.");
+  stgRow(c2, "Open API (no login)", "api_enabled", stgCheck("api_enabled"));
+  stgRow(c2, "API address", "api_listen", stgText("api_listen", {ph: "100.x.y.z:8041"}), "Tailscale IP only: the API has no login. 0.0.0.0 is refused.");
+  stgRow(c2, "API may read/send SMS", "api_allow_sms", stgCheck("api_allow_sms"));
+  g.appendChild(c2);
+
+  g.appendChild(notifySettingsCard());
+
+  const c4 = card("Advanced", "🧰", "overlay1");
+  stgRow(c4, "LTE connection (NetworkManager)", "lte_connection", stgText("lte_connection"));
+  stgRow(c4, "Hotspot connection", "hotspot_connection", stgText("hotspot_connection"));
+  stgRow(c4, "dongie-ims socket", "ims_socket", stgText("ims_socket"), "Empty turns the Wi-Fi calling integration off.");
+  stgRow(c4, "Services on the System tab", "services", stgText("services", {list: true}), "Comma separated unit names.");
+  stgRow(c4, "lnmsg (LXMF)", "lnmsg", stgText("lnmsg"), "Leviculum's lnmsg binary, used for LXMF notifications.");
+  stgRow(c4, "lnmsg state (tmpfs)", "lnmsg_home", stgText("lnmsg_home"), "RAM only; the sender identity itself is kept in the state directory.");
+  stgRow(c4, "LXMF sender name", "lxmf_name", stgText("lxmf_name", {ph: "hostname"}));
+  g.appendChild(c4);
+  stgDirty();
+}
+function notifySettingsCard() {
+  const c = card("Notifications", "🔔", "sky"), list = stg.draft.notify, saved = stg.data.values.notify;
+  c.appendChild(stgBadge("notify"));
+  if (!list.length) c.appendChild(el("div", "hint", "No targets yet. Add ntfy, a webhook, Meshtastic (a node on port 4403 or muxtastic on 4404) or LXMF (Reticulum, needs lnsd on the stick)."));
+  const names = {sms: "SMS", call: "incoming call", missed_call: "missed call"};
+  list.forEach((t, i) => {
+    const box = el("div", "stg-target");
+    const head = el("div", "stg-row");
+    const kind = el("select"); ["ntfy", "webhook", "meshtastic", "lxmf"].forEach(k => { const o = el("option", null, k); o.value = k; if (t.kind === k) o.selected = true; kind.appendChild(o); });
+    kind.onchange = () => { t.kind = kind.value; stg.needsRender = true; renderSettings(); };
+    head.appendChild(kind);
+    const nm = el("input"); nm.placeholder = "name (optional)"; nm.value = t.name || ""; nm.oninput = () => { t.name = nm.value; stgDirty(); }; head.appendChild(nm);
+    const rm = el("button", "small", "🗑 Remove"); rm.onclick = () => { list.splice(i, 1); stg.needsRender = true; renderSettings(); }; head.appendChild(rm);
+    if (t._orig != null && JSON.stringify(t) === JSON.stringify(saved[t._orig])) {
+      const tb = el("button", "small", "Send test");
+      tb.onclick = async () => { tb.disabled = true; try { const r = (await api("/api/notify/test?index=" + t._orig, {method: "POST"})).results[0]; stg.tests[i] = r && r.ok ? "✅ " + (r.detail || "sent") : "⚠ " + (r ? r.error : "not saved yet"); } catch (e) { stg.tests[i] = "⚠ " + e.message; } renderSettings(); };
+      head.appendChild(tb);
+    }
+    if (stg.tests[i]) head.appendChild(el("span", "hint", stg.tests[i]));
+    box.appendChild(head);
+    const field = (label, key, ph, num) => {
+      const r = el("div", "stg-row"), inp = el("input"); inp.placeholder = ph || ""; inp.value = t[key] ?? "";
+      inp.oninput = () => { t[key] = num ? Number(inp.value || 0) : inp.value; stgDirty(); };
+      r.appendChild(el("label", null, label)); r.appendChild(inp); box.appendChild(r);
+    };
+    if (t.kind === "lxmf") {
+      field("To", "to", "LXMF address (32 hex), e.g. from Sideband or Columba");
+      field("Via", "via", "auto (default), direct or propagated");
+      field("Prop. node", "pn", "optional: propagation node your app syncs from (32 hex)");
+    } else if (t.kind === "meshtastic") {
+      field("Host", "host", "192.168.1.50:4404 (muxtastic) or :4403 (node)");
+      field("Channel", "channel", "0-7", true);
+      field("To", "to", "empty = broadcast, or !a1b2c3d4");
+    } else {
+      field("URL", "url", t.kind === "ntfy" ? "https://ntfy.sh/your-secret-topic" : "https://example.org/hook");
+      const r = el("div", "stg-row"), tok = el("input"); tok.type = "password"; tok.autocomplete = "off";
+      tok.placeholder = t.token_set ? "set ✓ (empty = keep)" : "optional token";
+      tok.oninput = () => { if (tok.value) t.token = tok.value; else delete t.token; stgDirty(); };
+      r.appendChild(el("label", null, "Token")); r.appendChild(tok);
+      if (t.token_set) { const x = el("button", "small", "remove token"); x.onclick = () => { t.token = ""; t.token_set = false; stg.needsRender = true; renderSettings(); }; r.appendChild(x); }
+      box.appendChild(r);
+    }
+    const ev = el("div", "stg-row"); ev.appendChild(el("label", null, "Events"));
+    Object.keys(names).forEach(k => { const lb = el("label", "chk"), cb = el("input"); cb.type = "checkbox"; cb.checked = (t.events || []).includes(k);
+      cb.onchange = () => { t.events = Object.keys(names).filter(x => x === k ? cb.checked : (t.events || []).includes(x)); stgDirty(); };
+      lb.appendChild(cb); lb.appendChild(document.createTextNode(" " + names[k])); ev.appendChild(lb); });
+    const lb = el("label", "chk"), it = el("input"); it.type = "checkbox"; it.checked = t.include_text !== false;
+    it.onchange = () => { t.include_text = it.checked; stgDirty(); }; lb.appendChild(it); lb.appendChild(document.createTextNode(" SMS text")); ev.appendChild(lb);
+    box.appendChild(ev);
+    c.appendChild(box);
+  });
+  const add = el("button", null, "＋ Add target");
+  add.onclick = () => { list.push({kind: "ntfy", name: "", url: "", host: "", channel: 0, to: "", events: ["sms", "call", "missed_call"], include_text: true, token_set: false}); stg.needsRender = true; renderSettings(); };
+  const a = el("div", "actions"); a.appendChild(add); c.appendChild(a);
+  return c;
+}
+// what goes to the server for notify: keep_token for stored tokens, no UI-only fields
+function notifyForSave(list) {
+  return list.map(t => {
+    const o = Object.assign({}, t); delete o.token_set; delete o._orig;
+    if (o.token === undefined && t.token_set && t._orig != null) o.keep_token = t._orig;
+    return o;
+  });
+}
+async function saveSettings(changes) {
+  if (changes.notify) changes.notify = notifyForSave(changes.notify);
+  stg.busy = true; stg.err = ""; stg.msg = ""; stgDirty();
+  try {
+    const r = await api("/api/settings", {method: "POST", json: {changes}});
+    stg.msg = "Saved, dongie restarts…" + (r.confirm_within ? " Then confirm the new addresses within " + r.confirm_within + " s." : "");
+    renderSettings();
+    for (let i = 0; i < 30; i++) { await new Promise(res => setTimeout(res, 2000)); try { await api("/api/me"); if (i > 1) break; } catch (_) {} }
+    stg.msg = r.confirm_within ? stg.msg : "✅ Saved and restarted.";
+    await loadMe(); await loadSettings();
+  } catch (e) { stg.err = e.message; renderSettings(); }
+  finally { stg.busy = false; stgDirty(); }
+}
+
+// ---------- notifications ----------
+const notif = {loaded: false, targets: [], results: null, busy: false};
+async function loadNotify() {
+  notif.loaded = true;
+  try { notif.targets = (await api("/api/notify")).targets; } catch (_) { notif.targets = []; }
+  if (tab === "system") renderTab();
+}
+function notifyCard() {
+  const c = card("Notifications", "🔔", "sky", pill(notif.targets.length ? notif.targets.length + " target" + (notif.targets.length > 1 ? "s" : "") : "none", notif.targets.length ? "good" : null));
+  if (!notif.targets.length) {
+    c.appendChild(el("div", "hint", "No [[notify]] targets yet. Add ntfy, webhook or Meshtastic (node or muxtastic) targets to /etc/dongie/config.toml and restart dongie."));
+    return c;
+  }
+  const names = {sms: "SMS", call: "incoming call", missed_call: "missed call"};
+  notif.targets.forEach((t, i) => {
+    const r = notif.results && notif.results[i];
+    const v = t.error ? ["⚠ " + t.error, "bad"] : r ? [r.ok ? "✅ " + (r.detail || "test sent") : "⚠ " + r.error, r.ok ? "good" : "bad"] : [t.events.map(e => names[e] || e).join(", ") + (t.events.includes("sms") && !t.include_text ? " (no SMS text)" : ""), null];
+    kv(c, [[t.label, v[0], v[1]]]);
+  });
+  const a = el("div", "actions"), b = el("button", null, notif.busy ? "Sending…" : "Send test");
+  b.disabled = notif.busy;
+  b.onclick = async () => {
+    notif.busy = true; notif.results = null; renderTab();
+    try { notif.results = (await api("/api/notify/test", {method: "POST"})).results; } catch (e) { alert("Test failed: " + e.message); }
+    finally { notif.busy = false; renderTab(); }
+  };
+  a.appendChild(b); c.appendChild(a);
+  return c;
 }
 
 function actBtn(label, action, confirmText, danger) {
@@ -898,6 +1684,77 @@ function actBtn(label, action, confirmText, danger) {
     finally { setTimeout(() => { b.disabled = false; b.textContent = label; }, 4000); }
   };
   return b;
+}
+
+// ---------- mobile network selection ----------
+function netName(n, code) { const k = n.known.find(x => x.code === code); return k ? k.name + " " + k.country + " (" + code + ")" : code; }
+// USSD: state lives outside the card, which is re-rendered on every refresh
+const ussd = {code: "", answer: "", out: "", state: "idle", busy: false, err: ""};
+function ussdCard() {
+  const waiting = ussd.state === "user-response", open = waiting || ussd.state === "active";
+  const c = card("USSD", "#️⃣", "mauve", pill(ussd.busy ? "waiting…" : waiting ? "answer" : "idle", ussd.busy || waiting ? "ok" : "good"));
+  if (ussd.out) { const o = el("pre", "ussd-out", ussd.out); c.appendChild(o); }
+  if (ussd.err) c.appendChild(el("div", "err", ussd.err));
+  const d = el("div", "dial"), inp = el("input");
+  inp.placeholder = waiting ? "answer (e.g. 1)" : "code, e.g. *138#";
+  inp.value = waiting ? ussd.answer : ussd.code; inp.disabled = ussd.busy;
+  inp.oninput = () => { if (waiting) ussd.answer = inp.value; else ussd.code = inp.value; };
+  const run = async (op, body) => {
+    ussd.busy = true; ussd.err = ""; renderTab();
+    try { const r = await api("/api/ussd/" + op, {method: "POST", json: body}); ussd.out = r.reply || (op === "cancel" ? "" : "(empty reply)"); ussd.state = r.state; if (op !== "initiate") ussd.answer = ""; }
+    catch (e) { ussd.err = e.message; ussd.state = "idle"; }
+    finally { ussd.busy = false; renderTab(); }
+  };
+  const go = el("button", "pri", waiting ? "Answer" : "Send"); go.disabled = ussd.busy;
+  go.onclick = () => {
+    if (waiting) { if (ussd.answer.trim()) run("respond", {text: ussd.answer}); return; }
+    if (!ussd.code.trim()) return;
+    if (!confirm("Send " + ussd.code.trim() + "?\n\nFor USSD the modem leaves LTE for 3G: the data connection (and Tailscale over it) stalls for about 20-30 s. On some modems the reply never comes.")) return;
+    run("initiate", {code: ussd.code});
+  };
+  inp.onkeydown = e => { if (e.key === "Enter") go.onclick(); };
+  d.appendChild(inp); d.appendChild(go);
+  if (open) { const x = el("button", null, "End"); x.disabled = ussd.busy; x.onclick = () => run("cancel", {}); d.appendChild(x); }
+  c.appendChild(d);
+  c.appendChild(el("div", "hint", "⚠ USSD makes the modem leave LTE for 3G: data and Tailscale stall for ~20-30 s, and on the UZ801 the reply often never comes. Some answers arrive as an SMS instead. Codes can also change things (top-ups, services): only send ones you know."));
+  return c;
+}
+
+function netselCard(n) {
+  const p = n.pending, busy = p && !p.result;
+  const c = card("Network", "🛰", "teal", pill(n.network ? "manual" : "automatic", n.network ? "ok" : "good"));
+  hero(c, n.network ? netName(n, n.network) : "Automatic", "connection " + n.conn);
+  if (busy) {
+    const left = Math.max(0, p.deadline - Math.round(Date.now() / 1000));
+    c.appendChild(el("div", "hint", "⏳ Switching to " + (p.network ? netName(n, p.network) : "automatic") + "… if the stick isn't connected again in " + left + " s, it goes back to automatic by itself."));
+  } else if (p && p.result && Date.now() / 1000 - p.finished < 600) {
+    c.appendChild(el("div", "hint", (p.result === "ok" ? "✅ " : "⚠ ") + "Last change (" + (p.network ? netName(n, p.network) : "automatic") + "): " + p.result));
+  }
+  const d = el("div", "dial"), sel = el("select");
+  const o = (v, t) => { const e = el("option", null, t); e.value = v; if (v === n.network) e.selected = true; return e; };
+  sel.appendChild(o("", "Automatic"));
+  ["ES", "DE"].forEach(cc => { const og = document.createElement("optgroup"); og.label = cc === "ES" ? "🇪🇸 Spain" : "🇩🇪 Germany";
+    n.known.filter(k => k.country === cc).forEach(k => og.appendChild(o(k.code, k.name + " (" + k.code + ")"))); sel.appendChild(og); });
+  const b = el("button", "pri", "Apply"); b.disabled = busy;
+  b.onclick = async () => {
+    const v = sel.value; if (v === n.network) return;
+    if (!confirm("Switch the mobile network to " + (v ? netName(n, v) : "automatic") + "?\n\nThe data connection (and Tailscale over it) drops for a moment. If the stick isn't connected again within " + Math.round(n.safety_secs / 60 * 10) / 10 + " min, it switches back to automatic by itself.")) return;
+    b.disabled = true;
+    try { await api("/api/network/select", {method: "POST", json: {network: v}}); } catch (e) { alert("Network change failed: " + e.message); }
+    loadNetSel(true);
+  };
+  d.appendChild(sel); d.appendChild(b); c.appendChild(d);
+  c.appendChild(el("div", "hint", "The modem can't scan, so this list is fixed. A network that doesn't accept the SIM (e.g. another Spanish network with a Spanish SIM) is undone automatically. Manual selection mostly helps when roaming. If the stick is offline for " + Math.round(n.watchdog_secs / 60) + " min with a manual network, it goes back to automatic."));
+  return c;
+}
+async function loadNetSel(force) {
+  if (me.role !== "admin" || tab !== "mobile") return;
+  try {
+    const r = await api("/api/network"), key = JSON.stringify(r);
+    if (key === loadNetSel.key && !force) return;
+    loadNetSel.key = key; netsel = r;
+    if (!(document.activeElement && document.activeElement.tagName === "SELECT")) renderTab();
+  } catch (_) {}
 }
 
 // ---------- Wi-Fi calling (dongie-ims) ----------
@@ -924,14 +1781,14 @@ function imsCard(i, admin) {
       if (dn) { const a = el("a", null, "Open https://" + dn); a.href = "https://" + dn + "/#mobile"; h.appendChild(a); }
       c.appendChild(h);
     }
-    if (!calls.length) c.appendChild(el("div", "msg-empty", "No calls yet 🐹 (call log is RAM only)"));
+    if (!calls.length) c.appendChild(el("div", "msg-empty", "No calls yet 🐹" + (me.persist ? "" : " (call log is RAM only)")));
     else {
       const tw = el("div", "tscroll"), t = el("table"), hr = el("tr");
       ["When", "Number", "Result", "Codec", ""].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
       calls.slice(0, 10).forEach(x => {
         const r = el("tr");
         r.appendChild(el("td", null, new Date(x.at * 1000).toLocaleString()));
-        r.appendChild(el("td", null, (x.dir === "out" ? "↗ " : "↙ ") + (x.from || "unknown")));
+        r.appendChild(el("td", null, (x.dir === "out" ? "↗ " : "↙ ") + who(x.from)));
         const rc = el("td"); rc.appendChild(pill(x.result + (x.ended && x.ended_at && x.result === "answered" ? " · " + dur(x.ended_at - x.at).trim() : ""), CALL_CLS[x.result])); r.appendChild(rc);
         r.appendChild(el("td", null, x.codec || (x.codecs || []).join(", ") || "—"));
         const ac = el("td");
@@ -939,6 +1796,9 @@ function imsCard(i, admin) {
           const b = el("button", null, "✋ Reject");
           b.onclick = async () => { b.disabled = true; try { await api("/api/calls/" + x.id + "/reject", {method: "POST"}); await loadCalls(true); } catch (e) { alert("Reject failed: " + e.message); b.disabled = false; } };
           ac.appendChild(b);
+        } else if (x.from) {
+          const b = el("button", "small", nameFor(x.from) ? "✏️" : "👤"); b.title = nameFor(x.from) ? "Rename contact" : "Save as contact";
+          b.onclick = () => editContact(x.from); ac.appendChild(b);
         }
         r.appendChild(ac); t.appendChild(r);
       });
@@ -996,7 +1856,7 @@ if (REDACT) {
 // ---------- browser calls (WebRTC via dongie-ims) ----------
 let pc = null, micStream = null, pcCallId = null, muted = false, keypadOpen = false, dialDraft = "", toneKind = null, toneCtx = null, toneTimer = null;
 const remoteAudio = new Audio(); remoteAudio.autoplay = true;
-const BASE_TITLE = document.title;
+let BASE_TITLE = document.title; // becomes the hostname once the first status arrives
 function callsSupported() { return window.isSecureContext && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && !!window.RTCPeerConnection; }
 function startTone(kind) {
   if (toneKind === kind) return; stopTone(); toneKind = kind;
@@ -1067,7 +1927,7 @@ function renderCallBar() {
     // only an outgoing call that is still ringing may play a tone (ringback)
     if (toneKind && !(own && c.dir === "out" && c.result !== "answered" && toneKind === "ringback")) stopTone();
     const row = el("div", "row"), info = el("div");
-    info.appendChild(el("div", "who", (c.dir === "out" ? "↗ " : "↙ ") + (c.from || "unknown")));
+    info.appendChild(el("div", "who", (c.dir === "out" ? "↗ " : "↙ ") + who(c.from)));
     const secs = c.answered_at ? Math.max(0, Math.round(Date.now() / 1000 - c.answered_at)) : 0;
     const st = c.result === "answered" ? "🟢 " + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + (c.codec ? " · " + c.codec : "") + (pc ? " · " + pc.connectionState : "")
       : c.dir === "out" ? "calling…" : "connecting…";
@@ -1084,12 +1944,12 @@ function renderCallBar() {
       "123456789*0#".split("").forEach(d => { const b = el("button", null, d); b.onclick = () => api("/api/calls/" + c.id + "/dtmf", {method: "POST", json: {digits: d}}).catch(() => {}); kp.appendChild(b); });
       bar.appendChild(kp);
     }
-    document.title = "📞 " + (c.from || "call") + " · " + BASE_TITLE;
+    document.title = "📞 " + (nameFor(c.from) || c.from || "call") + " · " + BASE_TITLE;
     return;
   }
   bar.className = "ringing";
   const row = el("div", "row"), info = el("div");
-  info.appendChild(el("div", "who", "📞 " + (ringing.from || "unknown number")));
+  info.appendChild(el("div", "who", "📞 " + who(ringing.from, "unknown number")));
   info.appendChild(el("div", "st", "incoming call" + (ringing.codecs && ringing.codecs.includes("AMR-WB") ? " · HD" : "")));
   row.appendChild(info); row.appendChild(el("span", "sp"));
   const a = el("button", "ok", "Answer"); a.onclick = () => answerCall(ringing.id);
@@ -1110,7 +1970,7 @@ function updateMsgNav() {
 function renderSms() {
   if (me.role !== "admin" || !me.sms_available) return;
   const unread = msgs.filter(m => m.dir === "in" && !m.read).length;
-  $("unread").textContent = unread ? unread + " unread" : msgs.length + " in RAM";
+  $("unread").textContent = unread ? unread + " unread" : msgs.length + (me.persist ? " saved" : " in RAM");
   $("unread").className = "pill" + (unread ? " good" : "");
   const byNum = {};
   msgs.forEach(m => { (byNum[m.number] = byNum[m.number] || []).push(m); });
@@ -1119,12 +1979,15 @@ function renderSms() {
   const nb = el("div", "conv new" + (sel === null ? " sel" : "")); nb.appendChild(el("span", "n", "＋ New message")); nb.onclick = () => { sel = null; $("to").value = ""; renderSms(); $("to").focus(); }; cv.appendChild(nb);
   nums.forEach(n => {
     const c = el("div", "conv" + (n === sel ? " sel" : "")), left = el("div");
-    left.appendChild(el("div", "n", n)); left.appendChild(el("div", "p", byNum[n][0].text)); c.appendChild(left);
+    left.appendChild(el("div", "n", who(n))); left.appendChild(el("div", "p", byNum[n][0].text)); c.appendChild(left);
     const ur = byNum[n].filter(m => m.dir === "in" && !m.read).length; if (ur) c.appendChild(el("span", "badge", ur));
     c.onclick = () => openConv(n); cv.appendChild(c);
   });
   const box = $("msgs"); box.textContent = "";
   if (sel && byNum[sel]) {
+    const th = el("div", "thead"); th.appendChild(el("b", null, who(sel)));
+    const eb = el("button", "small", nameFor(sel) ? "✏️ Rename" : "👤 Save contact"); eb.onclick = () => editContact(sel); th.appendChild(eb);
+    box.appendChild(th);
     byNum[sel].slice().reverse().forEach(m => {
       const b = el("div", "m " + m.dir, m.text);
       const icon = {sending: "⏳", sent: "✓", delivered: "✓✓", pending: "…", failed: "✗"}[m.state] || "";
@@ -1132,7 +1995,7 @@ function renderSms() {
       box.appendChild(b);
     });
     box.scrollTop = box.scrollHeight;
-  } else box.appendChild(el("div", "msg-empty", msgs.length ? "Pick a conversation, or start a new one ✨" : "No messages yet 🐹\nThey're kept in RAM only and are gone after a restart."));
+  } else box.appendChild(el("div", "msg-empty", msgs.length ? "Pick a conversation, or start a new one ✨" : "No messages yet 🐹\n" + (me.persist ? "They're saved on the stick." : "They're kept in RAM only and are gone after a restart.")));
 }
 async function openConv(n) {
   sel = n; $("to").value = n; renderSms();
@@ -1179,21 +2042,24 @@ async function refresh(force) {
   if (tab === "mobile" || tab === "system") loadHistory(false);
   if (tab === "network") loadNet(false);
 }
-async function loadNet(force) {
+async function loadNet(force, fresh) {
   if (!force && Date.now() - netAt < 10000) return;
-  try { net = await api("/api/net"); netAt = Date.now(); if (tab === "network") renderTab(); } catch (_) {}
+  try { net = await api("/api/net" + (fresh ? "?fresh=1" : "")); netAt = Date.now(); if (tab === "network") renderTab(); } catch (_) {}
 }
 function go(t) { if (location.hash !== "#" + t) location.hash = t; else onHash(); }
 function onHash() {
   const t = (location.hash || "#home").slice(1);
-  tab = ["home", "mobile", "network", "system", "messages"].includes(t) ? t : "home";
+  tab = ["home", "mobile", "network", "system", "messages", "reticulum", "mesh", "settings"].includes(t) ? t : "home";
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("act", a.dataset.tab === tab));
   document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== "tab-" + tab);
   renderTab();
   if (tab === "mobile" || tab === "system") loadHistory(true);
   if (tab === "network") loadNet(true);
   if (tab === "messages") loadMsgs();
-  if (tab === "mobile") loadCalls(true);
+  if (tab === "settings") loadSettings();
+  if (tab === "reticulum") loadReticulum(true);
+  if (tab === "mesh") loadMesh(true);
+  if (tab === "mobile") { loadCalls(true); loadNetSel(true); }
 }
 window.addEventListener("hashchange", onHash);
 let resizeT = null;
@@ -1204,6 +2070,12 @@ async function loadMe() {
   me = await api("/api/me");
   $("who").textContent = me.user ? "👤 " + me.user + " · " + me.role : (me.role === "guest" ? "👀 guest" : "not logged in");
   $("loginBtn").hidden = !!me.user; $("logoutBtn").hidden = !me.user;
+  $("lhint").hidden = !me.no_users;
+  $("navSettings").hidden = me.role !== "admin";
+  $("navRet").hidden = !(me.role !== "none" && me.reticulum);
+  $("navMesh").hidden = !(me.role !== "none" && me.mesh);
+  loadContacts();
+  if (me.no_users && !me.user) $("who").textContent = "no users yet: see Log in";
   updateMsgNav();
 }
 $("loginBtn").onclick = () => { $("lerr").textContent = ""; $("loginDlg").showModal(); $("lu").focus(); };
@@ -1222,9 +2094,19 @@ $("text").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey
 (async () => {
   try { await loadMe(); } catch (e) { $("subtitle").textContent = "⚠ " + e.message; }
   onHash(); await refresh(); loadMsgs(); smsCount();
-  setInterval(refresh, 5000);
-  setInterval(loadMsgs, 5000);
-  setInterval(loadCalls, 2000);
+  // While the tab is in the background nothing is fetched (it's all paid LTE
+  // data on the stick's side), except a slow call/SMS check so an incoming call
+  // still rings; coming back fetches everything at once.
+  const away = () => document.hidden, liveCall = () => pcCallId != null || calls.some(c => !c.ended);
+  let callTick = 0, msgTick = 0;
+  setInterval(() => { if (!away()) refresh(); }, 5000);
+  setInterval(() => { if (!away() || ++msgTick % 6 === 0) loadMsgs(); }, 5000);            // hidden: every 30 s
+  setInterval(() => { ++callTick; if (liveCall() || callTick % (away() ? 5 : 2) === 0) loadCalls(); }, 2000); // 2 s in a call, else 4 s / 10 s hidden
+  setInterval(() => { if (!away()) loadNetSel(false); }, 5000);
+  document.addEventListener("visibilitychange", () => {
+    if (away()) return;
+    refresh(true); loadMsgs(); loadCalls(true); loadNetSel(false); loadReticulum(true); loadMesh(true);
+  });
   setInterval(() => { if (pcCallId != null) renderCallBar(); }, 1000);
 })();
 </script>

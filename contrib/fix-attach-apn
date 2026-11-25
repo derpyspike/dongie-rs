@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: EUPL-1.2
-# fix-attach-apn — make the modem attach to LTE with the right APN.
+# fix-attach-apn — make the modem attach to LTE with the right APN for the inserted SIM.
 #
 # Why: the UZ801 modem firmware (2015) re-seeds its LTE initial-attach profile
 # (QMI 3GPP profile 3, "qdp_profile") at every modem boot with APN
@@ -9,14 +9,30 @@
 # ModemManager/NetworkManager can't set it (old firmware rejects MM's profile
 # update with QMI error 81), but a plain `qmicli --wds-modify-profile` works.
 #
+# The attach APN is picked from the SIM's MCC+MNC (table below; extend it or
+# override in /etc/default/fix-attach-apn). For an unknown SIM nothing is changed.
+# After a change the modem is power-cycled and the matching NetworkManager
+# connection is brought up (one connection per SIM, bound with gsm.sim-operator-id).
+#
 # Runs once at boot (fix-attach-apn.service). Logs go to the journal.
-# Set up 2026-11-24 on a UZ801 with an Orange ES (Simyo) SIM. Credit for the diagnosis: Alejandro.
+# Set up 2026-11-24 on a UZ801. Credit for the diagnosis: Alejandro.
 
-APN="${APN:-orangeworld}"
+# MCCMNC  -> "attach-APN  NetworkManager-connection"
+declare -A SIMS=(
+  [21403]="orangeworld   lte"           # Orange ES (also Simyo)
+  [21401]="airtelwap.es  lte-vodafone"  # Vodafone ES
+  [21407]="telefonica.es lte-movistar"  # Movistar ES
+  [26201]="internet.telekom lte-telekom" # Telekom DE
+  [26203]="internet      lte-o2"        # O2 DE
+  [26207]="internet      lte-o2-legacy" # O2 DE (older O2 SIMs)
+)
 PROFILE="${PROFILE:-3}"
 DEV="${DEV:-/dev/wwan0qmi0}"
-QMI="qmicli -p -d $DEV"
+SIM_WAIT="${SIM_WAIT:-240}"   # seconds to wait for the SIM to be readable (PIN unlock by NM)
+# shellcheck disable=SC1091
+[ -r /etc/default/fix-attach-apn ] && . /etc/default/fix-attach-apn
 
+QMI="qmicli -p -d $DEV"
 log() { echo "fix-attach-apn: $*"; }
 
 # wait for ModemManager to see the modem and the QMI port to exist (max ~2 min)
@@ -28,6 +44,31 @@ if ! mmcli -m any >/dev/null 2>&1; then
   log "modem never showed up in ModemManager, giving up"; exit 1
 fi
 
+# The SIM's MCC+MNC is only readable once the PIN is entered (NetworkManager
+# does that with the PIN stored in the connection), so wait for it.
+sim_code() {
+  local sim
+  sim=$(mmcli -m any -K 2>/dev/null | awk -F': ' '/^modem.generic.sim /{gsub(/ /,"",$2); print $2}')
+  [ -n "$sim" ] && [ "$sim" != "--" ] || return
+  mmcli -i "$sim" -K 2>/dev/null | awk -F': ' '/^sim.properties.operator-code /{gsub(/ /,"",$2); print $2}'
+}
+code=""
+for i in $(seq 1 $((SIM_WAIT / 3))); do
+  code="$(sim_code)"
+  [[ "$code" =~ ^[0-9]{5,6}$ ]] && break
+  code=""
+  sleep 3
+done
+if [ -z "$code" ]; then
+  log "SIM operator code not readable after ${SIM_WAIT}s (no SIM / PIN not entered?), leaving the modem alone"
+  exit 0
+fi
+if [ -z "${SIMS[$code]}" ]; then
+  log "SIM $code is not in the table, leaving the attach APN alone"
+  exit 0
+fi
+read -r APN CONN <<<"${SIMS[$code]}"
+
 get_apn() {
   $QMI --wds-get-profile-list=3gpp 2>/dev/null | awk -v p="[$PROFILE]" '
     $1 == p { found = 1; next }
@@ -37,11 +78,11 @@ get_apn() {
 
 cur="$(get_apn)"
 if [ "$cur" = "$APN" ]; then
-  log "profile $PROFILE already has APN '$APN', nothing to do"
+  log "SIM $code: profile $PROFILE already has APN '$APN', nothing to do"
   exit 0
 fi
 
-log "profile $PROFILE has APN '$cur', setting it to '$APN'"
+log "SIM $code: profile $PROFILE has APN '$cur', setting it to '$APN'"
 if ! $QMI --wds-modify-profile="3gpp,$PROFILE,apn=$APN" >/dev/null 2>&1; then
   log "qmicli modify-profile FAILED"; exit 1
 fi
@@ -56,12 +97,16 @@ sleep 2
 mmcli -m any --enable >/dev/null 2>&1
 
 # NetworkManager may have used up its autoconnect retries meanwhile; kick it
+if ! nmcli -t -f NAME con show | grep -qx "$CONN"; then
+  log "NetworkManager has no connection '$CONN' for SIM $code; autoconnect decides"
+  exit 0
+fi
 for i in $(seq 1 3); do
-  if timeout 100 nmcli con up lte >/dev/null 2>&1; then
-    log "lte connection up"; exit 0
+  if timeout 100 nmcli con up "$CONN" >/dev/null 2>&1; then
+    log "$CONN connection up"; exit 0
   fi
-  log "nmcli con up lte attempt $i failed, retrying"
+  log "nmcli con up $CONN attempt $i failed, retrying"
   sleep 10
 done
-log "lte did not come up yet; NetworkManager autoconnect will keep trying"
+log "$CONN did not come up yet; NetworkManager autoconnect will keep trying"
 exit 0

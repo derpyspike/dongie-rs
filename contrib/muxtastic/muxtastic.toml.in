@@ -1,0 +1,57 @@
+# muxtastic on an OpenStick (see README.md). Listens on all interfaces, so apps
+# and browsers reach it from the hotspot, USB and Tailscale; muxtastic.service
+# drops both ports on the LTE side (wwan*). The web UI has no login.
+
+[node]
+type = "tcp"
+# The Meshtastic node with Wi-Fi, joined to the stick's hotspot.
+tcp_host = "@NODE_IP@"
+tcp_port = 4403
+tcp_idle_timeout_secs = 300
+
+[node.reconnect]
+enabled = true
+initial_delay_secs = 1
+max_delay_secs = 60
+multiplier = 2
+
+[server]
+host = "0.0.0.0"
+port = 4404                     # also in muxtastic.service (LTE drop rule)
+max_clients = 8
+
+[virtual_node]
+long_name = "@HOST@ mux"
+short_name = "MUX"
+sync_physical_identity = true
+
+[security]
+# Admin packets to the node stay blocked; to allow them from some networks
+# only, list them in allow_admin_from (e.g. the tailnet, "100.64.0.0/10").
+blocked_portnums = ["ADMIN_APP"]
+allow_admin_from = []
+
+[discovery]
+enabled = false
+
+[web]
+enabled = true
+host = "0.0.0.0"
+port = 8090                     # also in muxtastic.service (LTE drop rule)
+storage = "memory"              # RAM only, nothing on flash
+database = ""
+retention_days = 1
+try_all_one_byte_keys = false
+map_tile_url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+map_attribution = "© OpenStreetMap contributors"
+
+[web.mqtt]
+enabled = false
+
+[mqtt_bridge]
+enabled = false                 # every byte goes over LTE: only turn on deliberately
+
+[logging]
+level = "warning"
+file = ""                       # journal only
+console = true

@@ -11,9 +11,9 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     Admin,
@@ -51,10 +51,7 @@ fn hasher() -> Argon2<'static> {
 
 pub fn hash_password(pw: &str) -> String {
     let salt = SaltString::generate(&mut OsRng);
-    hasher()
-        .hash_password(pw.as_bytes(), &salt)
-        .expect("hash")
-        .to_string()
+    hasher().hash_password(pw.as_bytes(), &salt).expect("hash").to_string()
 }
 
 pub fn verify_password(pw: &str, hash: &str) -> bool {
@@ -67,9 +64,7 @@ pub fn verify_password(pw: &str, hash: &str) -> bool {
 pub fn valid_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 32
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
 }
 
 pub fn load(path: &Path) -> Vec<User> {
@@ -108,45 +103,81 @@ pub fn save(path: &Path, users: &[User]) -> std::io::Result<()> {
 
 const SESSION_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 
-#[derive(Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Session {
     pub user: String,
     pub role: Role,
-    expires: Instant,
+    /// unix time
+    expires: u64,
 }
 
+/// Login sessions. In RAM; with a runtime directory (systemd RuntimeDirectory,
+/// a tmpfs under /run) they are also kept in sessions.json there, so a restart
+/// of dongie (e.g. after saving settings) doesn't log everyone out. A reboot
+/// still does: /run is RAM, nothing goes to flash.
 #[derive(Default)]
 pub struct Sessions {
     map: Mutex<HashMap<String, Session>>,
+    file: Option<std::path::PathBuf>,
 }
 
 impl Sessions {
+    /// Sessions kept in `<dir>/sessions.json`; ones whose user no longer exists
+    /// (or has another role now) are dropped when loading.
+    pub fn with_runtime_dir(dir: &Path, users_file: &Path) -> Sessions {
+        let file = dir.join("sessions.json");
+        let users = load(users_file);
+        let now = now();
+        let mut map: HashMap<String, Session> =
+            std::fs::read(&file).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+        map.retain(|_, s| s.expires > now && users.iter().any(|u| u.name == s.user && u.role == s.role));
+        Sessions { map: Mutex::new(map), file: Some(file) }
+    }
+
+    fn save(&self, m: &HashMap<String, Session>) {
+        let Some(file) = &self.file else { return };
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let tmp = file.with_extension("tmp");
+        let ok = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&tmp)
+            .and_then(|mut f| f.write_all(&serde_json::to_vec(m).unwrap_or_default()))
+            .and_then(|_| std::fs::rename(&tmp, file));
+        if let Err(e) = ok {
+            eprintln!("sessions: {}: {e}", file.display());
+        }
+    }
+
     pub fn create(&self, user: &str, role: Role) -> String {
         let mut b = [0u8; 32];
         OsRng.fill_bytes(&mut b);
         let token: String = b.iter().map(|x| format!("{x:02x}")).collect();
         let mut m = self.map.lock().unwrap();
-        let now = Instant::now();
+        let now = now();
         m.retain(|_, s| s.expires > now);
-        m.insert(
-            token.clone(),
-            Session {
-                user: user.to_string(),
-                role,
-                expires: now + SESSION_TTL,
-            },
-        );
+        m.insert(token.clone(), Session { user: user.to_string(), role, expires: now + SESSION_TTL.as_secs() });
+        self.save(&m);
         token
     }
 
     pub fn get(&self, token: &str) -> Option<Session> {
         let m = self.map.lock().unwrap();
-        m.get(token).filter(|s| s.expires > Instant::now()).cloned()
+        m.get(token).filter(|s| s.expires > now()).cloned()
     }
 
     pub fn remove(&self, token: &str) {
-        self.map.lock().unwrap().remove(token);
+        let mut m = self.map.lock().unwrap();
+        m.remove(token);
+        self.save(&m);
     }
+}
+
+fn now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -181,5 +212,24 @@ mod tests {
         s.remove(&t);
         assert!(s.get(&t).is_none());
         assert!(s.get("nope").is_none());
+    }
+
+    #[test]
+    fn sessions_survive_restart_but_not_user_deletion() {
+        let d = std::env::temp_dir().join(format!("dongie-sess-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let uf = d.join("users");
+        save(&uf, &[User { name: "alice".into(), role: Role::Admin, hash: hash_password("pw123456") }]).unwrap();
+        let s = Sessions::with_runtime_dir(&d, &uf);
+        let (a, b) = (s.create("alice", Role::Admin), s.create("bob", Role::Admin));
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(d.join("sessions.json")).unwrap().permissions().mode() & 0o777, 0o600);
+        let s2 = Sessions::with_runtime_dir(&d, &uf); // "restart"
+        assert_eq!(s2.get(&a).unwrap().user, "alice");
+        assert!(s2.get(&b).is_none()); // bob isn't a user (anymore)
+        s2.remove(&a);
+        assert!(Sessions::with_runtime_dir(&d, &uf).get(&a).is_none()); // logout sticks
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

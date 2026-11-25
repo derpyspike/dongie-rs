@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: EUPL-1.2
+[Unit]
+Description=RAM-only storage for lnsd, capped at 12 MB
+
+[Mount]
+What=tmpfs
+Where=/run/lnsd
+Type=tmpfs
+# uid/gid are filled in at install time (numeric ids of the lnsd user)
+Options=size=12M,nr_inodes=4096,mode=0700,uid=@UID@,gid=@GID@,nosuid,nodev,noexec
+
+[Install]
+WantedBy=multi-user.target

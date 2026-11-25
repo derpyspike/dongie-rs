@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: EUPL-1.2
 # /etc/dongie/config.toml — all keys optional, these are the defaults.
 web_listen = "127.0.0.1:8040"        # web UI + login: set your stick's Tailscale IP
+web_listen_extra = []                 # more web UI addresses, e.g. ["192.168.4.1:8040"] (hotspot); never the open API
 api_listen = "127.0.0.1:8041"        # unauthenticated API: Tailscale IP only, never 0.0.0.0
 api_enabled = true
 api_allow_sms = true                 # the unauthenticated API (Tailscale only) may read/send SMS
@@ -16,3 +17,11 @@ services = ["ModemManager", "NetworkManager", "tailscaled", "fix-attach-apn", "d
 
 # dongie-ims (Wi-Fi calling) API socket; "" turns the integration off
 ims_socket = "/run/dongie-ims/api.sock"
+
+# Keep SMS and the call log on flash across restarts (compressed, checksummed,
+# written only when something changed). Off = RAM only. Contacts are always saved.
+persist = false
+
+# USSD codes in the Mobile tab (admin only). Off: on LTE the modem falls back to 3G
+# for USSD, so data and Tailscale stall for ~20-30 s (UZ801: often no reply at all).
+ussd = false

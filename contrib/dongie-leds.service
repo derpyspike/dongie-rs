@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: EUPL-1.2
 [Unit]
-Description=UZ801 status LEDs (blue = LTE, green = Tailscale)
+Description=Status LEDs for MSM8916 sticks (WAN = LTE, WLAN = Tailscale or Wi-Fi)
 After=ModemManager.service tailscaled.service
 
 [Service]
