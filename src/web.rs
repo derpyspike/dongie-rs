@@ -19,7 +19,6 @@ use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 
 const INDEX: &str = include_str!("../web/index.html");
@@ -160,6 +159,25 @@ pub fn web_router(app: App) -> Router {
         .route("/api/network", get(network_info))
         .route("/api/network/select", post(network_select))
         .route("/api/ussd/{op}", post(ussd))
+        .route("/api/features", get(features_get))
+        .route("/api/features/{name}", post(features_set))
+        .route("/api/ims/mode", post(ims_mode_set))
+        .route("/api/ims/voicemail", get(vm_list))
+        .route("/api/ims/voicemail/config", post(vm_config_set))
+        .route("/api/ims/voicemail/{id}", get(vm_audio).delete(vm_delete))
+        .route(
+            "/api/ims/greeting",
+            get(greeting_get)
+                .post(greeting_set)
+                .delete(greeting_delete)
+                .layer(axum::extract::DefaultBodyLimit::max(3 << 20)),
+        )
+        .route("/api/firewall", get(firewall_get).post(firewall_set))
+        .route("/api/firewall/confirm", post(firewall_confirm))
+        .route("/api/firewall/rollback", post(firewall_rollback))
+        .route("/api/sim", get(sim_get))
+        .route("/api/sim/unlock", post(sim_unlock))
+        .route("/api/sim/forget", post(sim_forget))
         .route("/api/settings", get(settings_get).post(settings_set))
         .route("/api/settings/confirm", post(settings_confirm))
         .route("/api/notify", get(notify_list))
@@ -681,6 +699,397 @@ async fn ussd(State(app): State<App>, h: HeaderMap, Path(op): Path<String>, Json
     }
 }
 
+/// GET /api/features: Tailscale serve + VoWiFi switches (admin).
+async fn features_get(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    let (serve, vowifi) =
+        tokio::join!(crate::features::serve_state(), crate::features::vowifi_state(&app.cfg.state_dir));
+    Json(crate::features::Features { serve, vowifi }).into_response()
+}
+
+// ---------------- firewall (admin) ----------------
+
+/// GET /api/firewall: switch, config (the pending one while it waits for
+/// confirmation), what is loaded, the zones and services to choose from.
+async fn firewall_get(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    use crate::firewall as fw;
+    let dir = &app.cfg.state_dir;
+    let left = fw::pending_left(dir);
+    let config = if left.is_some() {
+        std::fs::read_to_string(dir.join("firewall.pending"))
+            .ok()
+            .and_then(|t| toml::from_str::<fw::FwConfig>(&t).ok())
+            .unwrap_or_default()
+    } else {
+        fw::load(dir).unwrap_or_default()
+    };
+    let file_error = fw::load(dir).err();
+    Json(json!({
+        "enabled": app.cfg.firewall,
+        "config": config,
+        "file": dir.join("firewall.toml").exists(),
+        "file_error": file_error,
+        "status": fw::read_status(),
+        "pending_left": left,
+        "confirm_secs": fw::CONFIRM_SECS,
+        "zones": fw::ZONES,
+        "services": fw::SERVICES.iter().map(|(n, d)| json!({"name": n, "desc": d})).collect::<Vec<_>>(),
+    }))
+    .into_response()
+}
+
+#[derive(Deserialize)]
+struct FirewallReq {
+    config: crate::firewall::FwConfig,
+}
+
+/// POST /api/firewall {config}: apply provisionally; confirm within CONFIRM_SECS.
+async fn firewall_set(State(app): State<App>, h: HeaderMap, Json(req): Json<FirewallReq>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    if !app.cfg.firewall {
+        return err(StatusCode::CONFLICT, "the firewall is off (Settings: firewall)");
+    }
+    eprintln!("firewall: {user} tries new rules");
+    match crate::firewall::try_config(&app.cfg.state_dir, &req.config).await {
+        Ok(secs) => Json(json!({ "ok": true, "confirm_secs": secs })).into_response(),
+        Err(e) => {
+            eprintln!("firewall: rejected: {e}");
+            err(StatusCode::BAD_REQUEST, &e)
+        }
+    }
+}
+
+async fn firewall_confirm(State(app): State<App>, h: HeaderMap) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    match crate::firewall::confirm(&app.cfg.state_dir).await {
+        Ok(()) => {
+            eprintln!("firewall: {user} confirmed the new rules");
+            Json(json!({ "ok": true })).into_response()
+        }
+        Err(e) => err(StatusCode::CONFLICT, &e),
+    }
+}
+
+async fn firewall_rollback(State(app): State<App>, h: HeaderMap) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    eprintln!("firewall: {user} rolls back");
+    match crate::firewall::rollback(&app.cfg.state_dir).await {
+        Ok(()) => Json(json!({ "ok": true })).into_response(),
+        Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
+// ---------------- voicemail (admin) ----------------
+
+const VM_CONFIG: &str = "ims-voicemail.json";
+const GREETING: &str = "ims-greeting.wav";
+
+fn valid_vm_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 40 && id.bytes().all(|b| b.is_ascii_digit() || b == b'-')
+}
+
+/// GET /api/ims/voicemail: recordings + settings (from dongie-ims) + greeting info.
+async fn vm_list(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    let mut v = match crate::ims::request(&app.cfg.ims_socket, "GET", "/v1/voicemail").await {
+        Some((200, body)) => serde_json::from_str::<serde_json::Value>(&body).unwrap_or_else(|_| json!({})),
+        _ => json!({ "voicemail": [], "unavailable": true }),
+    };
+    let g = std::fs::metadata(app.cfg.state_dir.join(GREETING)).ok();
+    v["greeting_file"] = json!(g.map(|m| json!({ "bytes": m.len(), "secs": m.len().saturating_sub(44) / 32000 })));
+    v["persist"] = json!(app.cfg.persist);
+    if v.get("config").is_none() {
+        // dongie-ims not running: show what is saved
+        v["config"] = std::fs::read_to_string(app.cfg.state_dir.join(VM_CONFIG))
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_else(|| json!({ "mode": "off", "delay_secs": 20, "greeting": "beep", "max_secs": 120 }));
+    }
+    Json(v).into_response()
+}
+
+#[derive(Deserialize)]
+struct VmConfigReq {
+    mode: String,
+    delay_secs: u32,
+    greeting: String,
+    max_secs: u32,
+}
+
+/// POST /api/ims/voicemail/config: write the settings dongie-ims reads per call.
+async fn vm_config_set(State(app): State<App>, h: HeaderMap, Json(r): Json<VmConfigReq>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    if !["off", "delay", "now"].contains(&r.mode.as_str()) || !["none", "beep", "file"].contains(&r.greeting.as_str()) {
+        return err(StatusCode::BAD_REQUEST, "mode: off|delay|now, greeting: none|beep|file");
+    }
+    if !(1..=120).contains(&r.delay_secs) || !(10..=300).contains(&r.max_secs) {
+        return err(StatusCode::BAD_REQUEST, "delay 1-120 s, max length 10-300 s");
+    }
+    if r.greeting == "file" && !app.cfg.state_dir.join(GREETING).exists() {
+        return err(StatusCode::BAD_REQUEST, "no greeting file yet: upload or record one first");
+    }
+    let body = json!({ "mode": r.mode, "delay_secs": r.delay_secs, "greeting": r.greeting, "max_secs": r.max_secs, "persist": app.cfg.persist });
+    let p = app.cfg.state_dir.join(VM_CONFIG);
+    let tmp = p.with_extension("tmp");
+    if let Err(e) = std::fs::write(&tmp, body.to_string()).and_then(|_| std::fs::rename(&tmp, &p)) {
+        return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+    }
+    eprintln!(
+        "voicemail: {user} sets mode {} (delay {} s, greeting {}, max {} s)",
+        r.mode, r.delay_secs, r.greeting, r.max_secs
+    );
+    Json(json!({ "ok": true, "config": body })).into_response()
+}
+
+/// GET /api/ims/voicemail/{id}: the recording as WAV.
+async fn vm_audio(State(app): State<App>, h: HeaderMap, Path(id): Path<String>) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    let id = id.trim_end_matches(".wav");
+    if !valid_vm_id(id) {
+        return err(StatusCode::BAD_REQUEST, "bad id");
+    }
+    match crate::ims::request_raw(&app.cfg.ims_socket, &format!("/v1/voicemail/{id}")).await {
+        Some((200, bytes)) => {
+            ([(header::CONTENT_TYPE, "audio/wav"), (header::CACHE_CONTROL, "private, max-age=3600")], bytes)
+                .into_response()
+        }
+        Some((404, _)) => err(StatusCode::NOT_FOUND, "no such voicemail"),
+        _ => err(StatusCode::BAD_GATEWAY, "dongie-ims not answering"),
+    }
+}
+
+async fn vm_delete(State(app): State<App>, h: HeaderMap, Path(id): Path<String>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    if !valid_vm_id(&id) {
+        return err(StatusCode::BAD_REQUEST, "bad id");
+    }
+    match crate::ims::request(&app.cfg.ims_socket, "DELETE", &format!("/v1/voicemail/{id}")).await {
+        Some((200, _)) => {
+            eprintln!("voicemail: {user} deleted {id}");
+            Json(json!({ "ok": true })).into_response()
+        }
+        Some((404, _)) => err(StatusCode::NOT_FOUND, "no such voicemail"),
+        _ => err(StatusCode::BAD_GATEWAY, "dongie-ims not answering"),
+    }
+}
+
+/// A greeting must be what dongie-ims plays: WAV, PCM 16-bit, mono, 16 kHz,
+/// at most 60 s (the page converts uploads and recordings to that).
+fn check_greeting(b: &[u8]) -> Result<f64, String> {
+    if b.len() < 44 || &b[0..4] != b"RIFF" || &b[8..12] != b"WAVE" {
+        return Err("not a WAV file".into());
+    }
+    let (mut off, mut fmt_ok, mut data) = (12usize, false, 0usize);
+    while off + 8 <= b.len() {
+        let id = &b[off..off + 4];
+        let size = u32::from_le_bytes([b[off + 4], b[off + 5], b[off + 6], b[off + 7]]) as usize;
+        let body = &b[off + 8..(off + 8 + size).min(b.len())];
+        if id == b"fmt " && body.len() >= 16 {
+            let u16le = |i: usize| u16::from_le_bytes([body[i], body[i + 1]]);
+            let rate = u32::from_le_bytes([body[4], body[5], body[6], body[7]]);
+            fmt_ok = u16le(0) == 1 && u16le(2) == 1 && rate == 16000 && u16le(14) == 16;
+        } else if id == b"data" {
+            data = body.len();
+        }
+        off += 8 + size + size % 2;
+    }
+    if !fmt_ok {
+        return Err("need PCM 16-bit mono 16 kHz".into());
+    }
+    let secs = data as f64 / 32000.0;
+    if !(0.3..=60.5).contains(&secs) {
+        return Err(format!("{secs:.1} s: a greeting is 0.3 to 60 s"));
+    }
+    Ok(secs)
+}
+
+async fn greeting_set(State(app): State<App>, h: HeaderMap, body: axum::body::Bytes) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let secs = match check_greeting(&body) {
+        Ok(s) => s,
+        Err(e) => return err(StatusCode::BAD_REQUEST, &e),
+    };
+    let p = app.cfg.state_dir.join(GREETING);
+    let tmp = p.with_extension("tmp");
+    if let Err(e) = std::fs::write(&tmp, &body).and_then(|_| std::fs::rename(&tmp, &p)) {
+        return err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+    }
+    eprintln!("voicemail: {user} saved a {secs:.1} s greeting");
+    Json(json!({ "ok": true, "secs": secs })).into_response()
+}
+
+async fn greeting_get(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    match std::fs::read(app.cfg.state_dir.join(GREETING)) {
+        Ok(b) => ([(header::CONTENT_TYPE, "audio/wav"), (header::CACHE_CONTROL, "no-store")], b).into_response(),
+        Err(_) => err(StatusCode::NOT_FOUND, "no greeting file"),
+    }
+}
+
+async fn greeting_delete(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, true) {
+        return r;
+    }
+    let _ = std::fs::remove_file(app.cfg.state_dir.join(GREETING));
+    Json(json!({ "ok": true })).into_response()
+}
+
+#[derive(Deserialize)]
+struct ModeReq {
+    mode: String,
+}
+
+/// POST /api/ims/mode {"mode": "off" | "vowifi" | "volte" | "volte+vowifi" | "vowifi+volte"}: admin only.
+async fn ims_mode_set(State(app): State<App>, h: HeaderMap, Json(req): Json<ModeReq>) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    eprintln!("ims: {user} sets calling mode {}", req.mode);
+    match crate::features::ims_mode_set(&app.cfg.state_dir, &app.cfg.ims_socket, req.mode.trim()).await {
+        Ok(v) => Json(json!({ "vowifi": v })).into_response(),
+        Err(e) => {
+            eprintln!("ims: mode {}: {e}", req.mode);
+            err(StatusCode::BAD_REQUEST, &e)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct OnReq {
+    on: bool,
+}
+
+/// POST /api/features/{serve|vowifi} {"on": bool}: admin only.
+async fn features_set(
+    State(app): State<App>,
+    h: HeaderMap,
+    Path(name): Path<String>,
+    Json(req): Json<OnReq>,
+) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    eprintln!("features: {user} turns {name} {}", if req.on { "on" } else { "off" });
+    let r = match name.as_str() {
+        "serve" => crate::features::serve_set(&app.cfg, req.on).await.map(|s| json!({ "serve": s })),
+        "vowifi" => crate::features::vowifi_set(&app.cfg.state_dir, req.on).await.map(|v| json!({ "vowifi": v })),
+        _ => return err(StatusCode::NOT_FOUND, "unknown feature"),
+    };
+    match r {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => {
+            eprintln!("features: {name}: {e}");
+            err(StatusCode::BAD_REQUEST, &e)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct SimUnlockReq {
+    pin: String,
+    #[serde(default)]
+    puk: String,
+    #[serde(default)]
+    save: bool,
+    #[serde(default)]
+    last_try: bool,
+}
+
+/// GET /api/sim: lock state + attempts left + whether a PIN is saved (admin).
+async fn sim_get(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, false) {
+        return r;
+    }
+    let Some(sms) = &app.sms else {
+        return err(StatusCode::SERVICE_UNAVAILABLE, "ModemManager not available");
+    };
+    Json(sms.sim_state(&app.cfg.state_dir).await).into_response()
+}
+
+/// POST /api/sim/unlock {pin, puk?, save, last_try}: admin only. The PIN is never logged.
+async fn sim_unlock(State(app): State<App>, h: HeaderMap, Json(req): Json<SimUnlockReq>) -> Response {
+    use crate::sim::{valid_pin, valid_puk, Unlock};
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let Some(sms) = &app.sms else {
+        return err(StatusCode::SERVICE_UNAVAILABLE, "ModemManager not available");
+    };
+    let (pin, puk) = (req.pin.trim(), req.puk.trim());
+    if !valid_pin(pin) {
+        return err(StatusCode::BAD_REQUEST, "PIN: 4-8 digits");
+    }
+    let op = if puk.is_empty() {
+        Unlock::Pin(pin)
+    } else if valid_puk(puk) {
+        Unlock::Puk(puk, pin)
+    } else {
+        return err(StatusCode::BAD_REQUEST, "PUK: 8 digits");
+    };
+    let what = if puk.is_empty() { "PIN" } else { "PUK" };
+    eprintln!("sim: {user} sends the {what}{}", if req.save { " (and saves the PIN)" } else { "" });
+    match sms.sim_unlock(&app.cfg.state_dir, op, req.save, req.last_try).await {
+        Ok(()) => {
+            eprintln!("sim: unlocked by {user}");
+            Json(sms.sim_state(&app.cfg.state_dir).await).into_response()
+        }
+        Err(e) => {
+            eprintln!("sim: {what} from {user} failed: {e}");
+            err(StatusCode::BAD_REQUEST, &e)
+        }
+    }
+}
+
+/// POST /api/sim/forget: delete the saved PIN of the SIM in the modem.
+async fn sim_forget(State(app): State<App>, h: HeaderMap) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    let Some(sms) = &app.sms else {
+        return err(StatusCode::SERVICE_UNAVAILABLE, "ModemManager not available");
+    };
+    match sms.sim_forget(&app.cfg.state_dir).await {
+        Ok(()) => {
+            eprintln!("sim: {user} deleted the saved PIN");
+            Json(sms.sim_state(&app.cfg.state_dir).await).into_response()
+        }
+        Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
 async fn network_select(State(app): State<App>, h: HeaderMap, Json(req): Json<SelectReq>) -> Response {
     let user = match require_admin(&app, &h, true) {
         Ok(u) => u,
@@ -1127,22 +1536,27 @@ async fn api_send(State(app): State<App>, Json(req): Json<SendReq>) -> Response 
 // ---------------- binding ----------------
 
 /// Bind, retrying: at boot the Tailscale IP may not exist yet.
-pub async fn bind_retry(addr: &str) -> TcpListener {
-    let mut warned = false;
-    loop {
-        match TcpListener::bind(addr).await {
-            Ok(l) => {
-                eprintln!("listening on {addr}");
-                return l;
-            }
-            Err(e) => {
-                if !warned {
-                    eprintln!("bind {addr}: {e} — retrying every 5 s");
-                    warned = true;
-                }
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            }
-        }
+#[cfg(test)]
+mod vm_tests {
+    #[test]
+    fn greeting_wav_check() {
+        let wav = |rate: u32, ch: u16, n: usize| {
+            let mut b = b"RIFF\0\0\0\0WAVEfmt \x10\0\0\0\x01\0".to_vec();
+            b.extend(ch.to_le_bytes());
+            b.extend(rate.to_le_bytes());
+            b.extend((rate * 2).to_le_bytes());
+            b.extend([2, 0, 16, 0]);
+            b.extend(b"data");
+            b.extend(((n * 2) as u32).to_le_bytes());
+            b.extend(vec![0u8; n * 2]);
+            b
+        };
+        assert!(super::check_greeting(&wav(16000, 1, 16000)).is_ok());
+        assert!(super::check_greeting(&wav(44100, 1, 44100)).is_err());
+        assert!(super::check_greeting(&wav(16000, 2, 16000)).is_err());
+        assert!(super::check_greeting(&wav(16000, 1, 16000 * 61)).is_err());
+        assert!(super::check_greeting(b"not a wav").is_err());
+        assert!(super::valid_vm_id("1795712345-3") && !super::valid_vm_id("../x") && !super::valid_vm_id(""));
     }
 }
 
@@ -1153,10 +1567,10 @@ mod tests {
     #[test]
     fn guest_networks() {
         let ip = |s: &str| Some(s.parse().unwrap());
-        let nets = vec!["192.168.100.0/24".to_string(), "100.64.0.0/10".into(), "dead:beef::/64".into()];
+        let nets = vec!["192.168.100.0/24".to_string(), "100.64.0.0/10".into(), "fdde:ad:beef::/64".into()];
         assert!(guest_network_ok(&nets, ip("192.168.100.42")));
         assert!(guest_network_ok(&nets, ip("100.101.102.103")));
-        assert!(guest_network_ok(&nets, ip("dead:beef::1234")));
+        assert!(guest_network_ok(&nets, ip("fdde:ad:beef::1234")));
         assert!(!guest_network_ok(&nets, ip("192.168.1.20"))); // upstream Wi-Fi
         assert!(!guest_network_ok(&nets, ip("10.0.0.1"))); // LTE side
         assert!(!guest_network_ok(&nets, ip("2001:db8::1")));

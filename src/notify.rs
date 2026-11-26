@@ -24,13 +24,26 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 
-pub const EVENTS: &[&str] = &["sms", "call", "missed_call"];
+pub const EVENTS: &[&str] = &["sms", "call", "missed_call", "voicemail"];
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Sms { from: String, text: String, via: &'static str },
-    Call { from: String },
-    MissedCall { from: String },
+    Sms {
+        from: String,
+        text: String,
+        via: &'static str,
+    },
+    Call {
+        from: String,
+    },
+    MissedCall {
+        from: String,
+    },
+    /// the stick's voicemail recorded a message (secs long)
+    Voicemail {
+        from: String,
+        secs: u64,
+    },
     Test,
 }
 
@@ -40,13 +53,17 @@ impl Event {
             Event::Sms { .. } => "sms",
             Event::Call { .. } => "call",
             Event::MissedCall { .. } => "missed_call",
+            Event::Voicemail { .. } => "voicemail",
             Event::Test => "test",
         }
     }
 
     fn from(&self) -> &str {
         match self {
-            Event::Sms { from, .. } | Event::Call { from } | Event::MissedCall { from } => from,
+            Event::Sms { from, .. }
+            | Event::Call { from }
+            | Event::MissedCall { from }
+            | Event::Voicemail { from, .. } => from,
             Event::Test => "",
         }
     }
@@ -61,6 +78,7 @@ impl Event {
             Event::Sms { .. } => format!("SMS from {from}"),
             Event::Call { .. } => format!("Incoming call from {from}"),
             Event::MissedCall { .. } => format!("Missed call from {from}"),
+            Event::Voicemail { .. } => format!("Voicemail from {from}"),
             Event::Test => "dongie test notification".into(),
         }
     }
@@ -71,6 +89,9 @@ impl Event {
             Event::Sms { text, .. } => format!("({} characters, text not included)", text.chars().count()),
             Event::Call { .. } => "Ringing on the stick (Wi-Fi calling)".into(),
             Event::MissedCall { .. } => "Nobody answered".into(),
+            Event::Voicemail { secs, .. } => {
+                format!("{}:{:02} message, listen to it in dongie (Mobile tab)", secs / 60, secs % 60)
+            }
             Event::Test => "If you can read this, this notification target works.".into(),
         }
     }
@@ -80,6 +101,7 @@ impl Event {
             Event::Sms { .. } => "speech_balloon",
             Event::Call { .. } => "telephone_receiver",
             Event::MissedCall { .. } => "no_bell",
+            Event::Voicemail { .. } => "mailbox_with_mail",
             Event::Test => "white_check_mark",
         }
     }

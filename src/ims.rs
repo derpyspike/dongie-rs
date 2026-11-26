@@ -24,6 +24,12 @@ const MAX_RESPONSE: usize = 256 * 1024;
 pub struct ImsStatus {
     pub version: String,
     pub access: String,
+    /// configured mode (dongie-ims >= VoLTE support; empty from older ones)
+    #[serde(default)]
+    pub mode: String,
+    /// running on the mode's second access
+    #[serde(default)]
+    pub fallback: bool,
     pub status: String,
     pub registered: bool,
     pub since: u64,
@@ -68,8 +74,11 @@ pub struct Call {
     pub state: String,
     pub ended: bool,
     pub ended_at: u64,
-    /// ringing | answered | missed | rejected
+    /// ringing | answered | voicemail | missed | rejected
     pub result: String,
+    /// id of the recording when the stick's voicemail took the call
+    pub voicemail: String,
+    pub voicemail_secs: u64,
     pub cause: String,
     pub codecs: Vec<String>,
 }
@@ -111,6 +120,24 @@ pub async fn request_body(
         parse_response(&buf)
     };
     tokio::time::timeout(timeout, fut).await.ok().flatten()
+}
+
+/// GET with a binary body (voicemail WAV), up to 12 MB.
+pub async fn request_raw(socket: &str, path: &str) -> Option<(u16, Vec<u8>)> {
+    if socket.is_empty() {
+        return None;
+    }
+    let fut = async {
+        let mut s = UnixStream::connect(socket).await.ok()?;
+        s.write_all(format!("GET {path} HTTP/1.0\r\nHost: dongie-ims\r\n\r\n").as_bytes()).await.ok()?;
+        let mut buf = Vec::new();
+        s.take(12 << 20).read_to_end(&mut buf).await.ok()?;
+        let i = buf.windows(4).position(|w| w == b"\r\n\r\n")?;
+        let head = String::from_utf8_lossy(&buf[..i]);
+        let code = head.split_whitespace().nth(1)?.parse().ok()?;
+        Some((code, buf[i + 4..].to_vec()))
+    };
+    tokio::time::timeout(Duration::from_secs(15), fut).await.ok().flatten()
 }
 
 fn parse_response(buf: &[u8]) -> Option<(u16, String)> {
@@ -192,6 +219,7 @@ impl Ims {
         // look after a (re)start everything present counts as seen (no flood of old calls)
         let mut rang = std::collections::HashSet::new();
         let mut missed = std::collections::HashSet::new();
+        let mut voicemails = std::collections::HashSet::new();
         let mut primed = false;
         loop {
             if let Some(st) = status(&self.socket).await {
@@ -200,6 +228,7 @@ impl Ims {
                     after = 0;
                     rang.clear();
                     missed.clear();
+                    voicemails.clear();
                     primed = false;
                 }
                 if let Some(c) = get_json::<Calls>(&self.socket, "/v1/calls").await {
@@ -211,6 +240,27 @@ impl Ims {
                             notify(&events, crate::notify::Event::Call { from: call.from.clone() });
                         }
                         if call.ended && call.result == "missed" && missed.insert(call.id) && primed {
+                            notify(&events, crate::notify::Event::MissedCall { from: call.from.clone() });
+                        }
+                        // the recording is saved a moment after the call ends
+                        if call.result == "voicemail"
+                            && !call.voicemail.is_empty()
+                            && voicemails.insert(call.id)
+                            && primed
+                        {
+                            notify(
+                                &events,
+                                crate::notify::Event::Voicemail { from: call.from.clone(), secs: call.voicemail_secs },
+                            );
+                        }
+                        // taken by the voicemail but nothing said after the beep
+                        if call.ended
+                            && call.result == "voicemail"
+                            && call.voicemail.is_empty()
+                            && cmd::now().saturating_sub(call.ended_at) > 15
+                            && voicemails.insert(call.id)
+                            && primed
+                        {
                             notify(&events, crate::notify::Event::MissedCall { from: call.from.clone() });
                         }
                     }

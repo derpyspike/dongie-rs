@@ -17,6 +17,9 @@ pub struct Config {
     pub api_listen: String,
     /// false disables the unauthenticated API listener completely.
     pub api_enabled: bool,
+    /// Firewall (nftables, see firewall.rs): zones x services from
+    /// <state_dir>/firewall.toml or the defaults. Off by default.
+    pub firewall: bool,
     /// Let the unauthenticated API read/send SMS too (default on: that is what the port is for).
     pub api_allow_sms: bool,
     /// Show the dashboard (guest view, no SMS) without logging in.
@@ -97,7 +100,7 @@ pub struct NotifyTarget {
     /// (32 hex; empty = the one lnmsg heard most recently). Use the one the
     /// recipient's app syncs from.
     pub pn: String,
-    /// Any of "sms", "call" (incoming, ringing), "missed_call".
+    /// Any of "sms", "call" (incoming, ringing), "missed_call", "voicemail".
     pub events: Vec<String>,
     /// Put the SMS text into the notification (otherwise just sender + length).
     pub include_text: bool,
@@ -115,7 +118,7 @@ impl Default for NotifyTarget {
             to: String::new(),
             via: String::new(),
             pn: String::new(),
-            events: vec!["sms".into(), "call".into(), "missed_call".into()],
+            events: vec!["sms".into(), "call".into(), "missed_call".into(), "voicemail".into()],
             include_text: true,
         }
     }
@@ -128,6 +131,7 @@ impl Default for Config {
             web_listen_extra: vec![],
             api_listen: "127.0.0.1:8041".into(),
             api_enabled: true,
+            firewall: false,
             api_allow_sms: true,
             anonymous_guest: true,
             guest_networks: vec![],

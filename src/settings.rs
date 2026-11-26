@@ -25,6 +25,7 @@ pub const EDITABLE: &[&str] = &[
     "web_listen_extra",
     "api_listen",
     "api_enabled",
+    "firewall",
     "api_allow_sms",
     "anonymous_guest",
     "guest_networks",
@@ -48,7 +49,7 @@ pub const EDITABLE: &[&str] = &[
 ];
 
 /// Changing one of these can make the web UI unreachable -> needs confirmation.
-pub const RISKY: &[&str] = &["web_listen", "web_listen_extra", "api_listen", "api_enabled"];
+pub const RISKY: &[&str] = &["web_listen", "web_listen_extra", "api_listen", "api_enabled", "firewall"];
 
 pub fn override_path(state_dir: &Path) -> PathBuf {
     state_dir.join("settings.toml")
@@ -84,16 +85,16 @@ pub fn to_config(t: Table) -> Result<Config, String> {
 }
 
 fn valid_addr(a: &str) -> bool {
-    a.parse::<std::net::SocketAddr>().is_ok()
+    crate::listen::valid(a)
 }
 
 /// Checks beyond "it parses".
 pub fn validate(c: &Config) -> Result<(), String> {
     if !valid_addr(&c.web_listen) {
-        return Err(format!("web_listen: {:?} is not ip:port", c.web_listen));
+        return Err(format!("web_listen: {:?} is not ip:port or tailscale:PORT", c.web_listen));
     }
     if let Some(a) = c.web_listen_extra.iter().find(|a| !valid_addr(a)) {
-        return Err(format!("web_listen_extra: {a:?} is not ip:port"));
+        return Err(format!("web_listen_extra: {a:?} is not ip:port or tailscale:PORT"));
     }
     if !crate::update::valid_repo(&c.update_repo) {
         return Err(format!("update_repo: {:?} is not owner/name", c.update_repo));
@@ -102,7 +103,7 @@ pub fn validate(c: &Config) -> Result<(), String> {
         return Err(format!("guest_networks: {n:?} is not a network like 192.168.100.0/24"));
     }
     if c.api_enabled && !valid_addr(&c.api_listen) {
-        return Err(format!("api_listen: {:?} is not ip:port", c.api_listen));
+        return Err(format!("api_listen: {:?} is not ip:port or tailscale:PORT", c.api_listen));
     }
     if c.api_enabled && c.api_listen.starts_with("0.0.0.0") {
         return Err("api_listen: the API has no login, never bind it to 0.0.0.0".into());

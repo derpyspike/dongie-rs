@@ -49,11 +49,11 @@ cargo build --release --locked --target aarch64-unknown-linux-musl -p leviculum-
 cargo build --release --locked --target aarch64-unknown-linux-musl -p lnmsg --bin lnmsg
 ```
 
-Stripped: lnsd 6.9 MB, lnmsg 10.1 MB, lnstatus 6.7 MB. Built from Leviculum 395edd42 + the patches below (commit e80c3d7b on a local branch); the Reticulum tab shows each tool's version and commit.
+Stripped: lnsd 6.9 MB, lnmsg 10.1 MB, lnstatus 6.7 MB. The binaries on the first test stick (2026-11-25) were built from Leviculum 395edd42 + the patches below (e80c3d7b). The patches are now rebased onto upstream d476a0ace (2026-11-22): branch **`dongie-master`** (cf7cb559) in [github.com/derpyspike/leviculum](https://github.com/derpyspike/leviculum), next to an unchanged copy of upstream `master`. Build the stick binaries from `dongie-master`. The Reticulum tab shows each tool's version and commit.
 
 ## Local patches to Leviculum (`patches/`)
 
-Apply with `git am patches/*.patch` on Leviculum 395edd42 before building
+Apply with `git am patches/*.patch` on Leviculum d476a0ace (upstream master, 2026-11-22) before building
 `lnmsg`. They change Leviculum code, so they are **AGPL-3.0** like Leviculum,
 not EUPL like the rest of this repository.
 

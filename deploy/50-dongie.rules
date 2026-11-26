@@ -7,6 +7,7 @@ polkit.addRule(function(action, subject) {
     switch (action.id) {
     case "org.freedesktop.ModemManager1.Messaging":           // read/send/delete SMS
     case "org.freedesktop.ModemManager1.USSD":                // USSD codes (admin only in the UI)
+    case "org.freedesktop.ModemManager1.Device.Control":      // SIM PIN/PUK unlock (admin only in the UI)
     case "org.freedesktop.NetworkManager.network-control":    // hotspot on/off, LTE reconnect
     case "org.freedesktop.NetworkManager.enable-disable-wifi":
     case "org.freedesktop.NetworkManager.wifi.share.protected": // bring the WPA hotspot up
@@ -26,6 +27,24 @@ polkit.addRule(function(action, subject) {
     if (action.id === "org.freedesktop.systemd1.manage-units" &&
         action.lookup("unit") === "muxtastic.service" &&
         ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0) {
+        return polkit.Result.YES;
+    }
+    // VoWiFi switch: start/stop dongie-ims, that unit only (on/off at boot via dongie's marker files)
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") === "dongie-ims.service" &&
+        ["start", "stop"].indexOf(action.lookup("verb")) >= 0) {
+        return polkit.Result.YES;
+    }
+    // SIM unlock: ModemManager keeps the SIM details it read while locked; dongie
+    // restarts it once (and re-runs the APN fix) when they stay empty after an unlock
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+        ["ModemManager.service", "fix-attach-apn.service"].indexOf(action.lookup("unit")) >= 0 &&
+        action.lookup("verb") === "restart") {
+        return polkit.Result.YES;
+    }
+    // Firewall card: reload the nftables rules (that unit only)
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") === "dongie-firewall.service" && action.lookup("verb") === "restart") {
         return polkit.Result.YES;
     }
     // Update button: start the root helper that verifies + installs a release

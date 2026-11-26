@@ -1,4 +1,4 @@
-From e80c3d7bd0542cfc1212e684272181c1cf6da5b9 Mon Sep 17 00:00:00 2001
+From cf7cb559a1b8413779bdf59d3ca4ccc267e8a4d2 Mon Sep 17 00:00:00 2001
 From: derpyspike <67692052+derpyspike@users.noreply.github.com>
 Date: Wed, 25 Nov 2026 13:01:57 +0100
 Subject: [PATCH 2/2] lxmf: assume stamp cost 10 when a delivery announce can't
@@ -17,11 +17,11 @@ node: accepted with stamp value 10.16, whole send 761 ms.
 
 Local patch for dongie.
 ---
- leviculum-lxmf/src/router.rs | 34 +++++++++++++++++++++++++++-------
- 1 file changed, 27 insertions(+), 7 deletions(-)
+ leviculum-lxmf/src/router.rs | 35 +++++++++++++++++++++++++++--------
+ 1 file changed, 27 insertions(+), 8 deletions(-)
 
 diff --git a/leviculum-lxmf/src/router.rs b/leviculum-lxmf/src/router.rs
-index 1dd2a500..eeb29390 100644
+index b56826781..7b90a43e9 100644
 --- a/leviculum-lxmf/src/router.rs
 +++ b/leviculum-lxmf/src/router.rs
 @@ -40,6 +40,10 @@ mod stamp_runtime;
@@ -35,15 +35,7 @@ index 1dd2a500..eeb29390 100644
  pub use propagation_runtime::{
      PropagationClientConfig, PropagationClientState, PropagationPathAttempts,
      PropagationSyncResult, PropagationSyncStatus,
-@@ -98,6 +102,7 @@ pub enum MessageState {
- }
- 
- #[derive(Debug, Clone)]
-+
- pub struct RouterConfig {
-     pub max_outbound: usize,
-     pub max_delivered_ids: usize,
-@@ -1280,17 +1285,32 @@ impl LxmfRouter {
+@@ -1446,18 +1450,33 @@ impl LxmfRouter {
              if announce.name_hash() == &Destination::compute_name_hash(APP_NAME, &[DELIVERY_ASPECT])
              {
                  let data = announce.app_data();
@@ -60,6 +52,7 @@ index 1dd2a500..eeb29390 100644
 +                        output.events.push(RouterEvent::PeerAnnounced {
 +                            destination: *announce.destination_hash(),
 +                            announce: decoded,
++                            path_response: announce.is_path_response(),
 +                        });
 +                    }
 +                    // App data we can't read may well carry a stamp cost (a
@@ -78,6 +71,7 @@ index 1dd2a500..eeb29390 100644
 -                    output.events.push(RouterEvent::PeerAnnounced {
 -                        destination: *announce.destination_hash(),
 -                        announce: decoded,
+-                        path_response: announce.is_path_response(),
 -                    });
 +                    Err(_) => {}
                  }

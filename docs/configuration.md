@@ -5,9 +5,10 @@
 
 | Key | Default | Meaning |
 |---|---|---|
-| `web_listen` | `127.0.0.1:8040` | web UI + login API (use your stick's Tailscale IP) |
-| `web_listen_extra` | `[]` | more addresses for the **web UI only** (login required as usual), e.g. `["192.168.4.1:8040"]` for the hotspot or the USB address, so the stick is reachable without Tailscale. Addresses that don't exist yet (hotspot off) are retried every 5 s. Browser calls still need HTTPS (Tailscale) |
+| `web_listen` | `127.0.0.1:8040` | web UI + login API (use your stick's Tailscale IP, or `tailscale:8040`). Every listen key takes `ip:port` or `tailscale:PORT`: the stick's Tailscale IPv4 **and** IPv6 address, whatever they are. dongie waits until Tailscale has one and moves the listener within 30 s when it changes (another tailnet) or goes away (logout) |
+| `web_listen_extra` | `[]` | more addresses for the **web UI only** (login required as usual), e.g. `["tailscale:8040"]`, or `["192.168.4.1:8040"]` for the hotspot or the USB address, so the stick is reachable without Tailscale. Addresses that don't exist yet (hotspot off) are retried every 5 s. Browser calls still need HTTPS (Tailscale) |
 | `api_listen` | `127.0.0.1:8041` | open API (use the Tailscale IP, never `0.0.0.0`) |
+| `firewall` | `false` | nftables firewall: zones × services from `<state_dir>/firewall.toml` (or the defaults), edited on the Network tab's Firewall card. See [Firewall](#firewall) and [security](security.md) |
 | `api_enabled` | `true` | `false` disables the open API completely |
 | `api_allow_sms` | `true` | open API may read/send SMS |
 | `anonymous_guest` | `true` | dashboard visible without login |
@@ -79,3 +80,37 @@ If the Tailscale IP isn't up yet at boot, dongie retries binding every 5 s.
 
 ---
 [← back to README](../README.md) · [docs index](README.md)
+
+## Firewall
+
+With `firewall = true`, `dongie-firewall.service` loads the rules at boot. Without a
+`<state_dir>/firewall.toml` the defaults apply; the Firewall card writes the file, and it
+can be edited by hand (then `sudo systemctl restart dongie-firewall`):
+
+```toml
+[zones]                     # interfaces per zone, first match wins; "*" at the end
+bridge = ["br0", "usb*"]
+tailscale = ["tailscale0"]
+wireguard = ["wg*", "mainwg"]
+wifi = ["wlan*"]
+lte = ["wwan*", "rmnet*"]
+
+[allow]                     # ssh web api calls dns ping mesh
+bridge = ["ssh", "web", "api", "calls", "dns", "ping", "mesh"]
+tailscale = ["ssh", "web", "api", "calls", "ping", "mesh"]
+wireguard = ["ssh", "web", "api", "calls", "ping"]
+wifi = ["ssh", "ping"]
+lte = []
+
+forward = ["bridge"]        # zones whose clients the stick routes (NAT)
+
+[[rule]]                    # own rules: zone, tcp|udp, port or range, optional source
+zone = "wifi"
+proto = "tcp"
+ports = "8000-8100"
+from = "192.168.1.0/24"
+comment = "home lab"
+```
+
+`dongie firewall-show` prints the nftables rules the current file would load.
+

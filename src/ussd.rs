@@ -70,7 +70,7 @@ impl Sms {
 }
 
 /// ModemManager errors come as "org.freedesktop.ModemManager1.Error.Core.Failed: text".
-fn clean_error(e: &str) -> String {
+pub(crate) fn clean_error(e: &str) -> String {
     let e = e.rsplit_once("Error.").map(|(_, r)| r).unwrap_or(e);
     e.chars().take(200).collect()
 }

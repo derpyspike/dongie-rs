@@ -23,7 +23,12 @@ pub async fn run_any(prog: &str, args: &[&str]) -> Option<(bool, String, String)
 /// Like `run_any` with a custom timeout in seconds.
 pub async fn run_any_t(prog: &str, args: &[&str], secs: u64) -> Option<(bool, String, String)> {
     let fut = Command::new(prog).args(args).kill_on_drop(true).output();
-    match tokio::time::timeout(Duration::from_secs(secs), fut).await {
+    let res = tokio::time::timeout(Duration::from_secs(secs), fut).await;
+    if prog == "nmcli" {
+        // it may have changed connections: the next NetworkManager read is fresh
+        crate::nm::invalidate().await;
+    }
+    match res {
         Ok(Ok(o)) => Some((
             o.status.success(),
             String::from_utf8_lossy(&o.stdout).into_owned(),

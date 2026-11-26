@@ -112,6 +112,10 @@ table.svctab td:not(:first-child),table.svctab th:not(:first-child){text-align:r
 @media (max-width:520px){.wgn b+.mono{display:none}}
 .wgsub{font-size:12px;color:var(--subtext0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wgs{text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fwt td,.fwt th{text-align:center;padding:3px 6px}.fwt td:first-child{text-align:left}.fwt input[type=text],.fwt input:not([type]){width:7em}.fwrule{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;align-items:center}
+.vmbox{margin-top:12px;border-top:1px solid var(--surface1);padding-top:10px}.vmhead{font-weight:600;margin-bottom:6px}.vmrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}.vmbox audio{height:32px;max-width:220px}
+.featrow{margin:8px 0;display:flex;flex-direction:column;gap:6px}
+.simf{display:flex;flex-direction:column;gap:8px;margin:8px 0}.simf input[type=password]{max-width:220px}
 .card details>pre.small{white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;background:var(--mantle);padding:8px 10px;border-radius:10px;margin:6px 0}
 details.wgmore>summary{cursor:pointer;font-size:12.5px;color:var(--subtext0);padding:4px 6px;font-weight:600}
 .wgact{border-top:1px solid var(--surface0);padding-top:10px}
@@ -612,8 +616,8 @@ function renderHome() {
   c4.style.cursor = "pointer"; c4.onclick = () => go("system"); g.appendChild(c4);
   // VoWiFi
   if (s.ims) {
-    const i = s.ims, cv = card("Wi-Fi Calling", "📞", "green", pill(i.registered ? "registered" : (i.status || "down"), i.registered ? "good" : i.status === "connecting" || i.status === "reconnecting" ? "ok" : "bad"));
-    hero(cv, i.registered ? "VoWiFi" : "offline", i.registered ? "since " + ago(i.since).replace(" ago", "") : (i.last_error_at ? "last error " + ago(i.last_error_at) : ""), i.registered ? "good" : "bad");
+    const i = s.ims, cv = card("Calls (IMS)", "📞", "green", pill(i.registered ? "registered" : (i.status || "down"), i.registered ? "good" : i.status === "connecting" || i.status === "reconnecting" ? "ok" : "bad"));
+    hero(cv, i.registered ? accessName(i.access) + (i.fallback ? " ↩" : "") : "offline", i.registered ? "since " + ago(i.since).replace(" ago", "") : (i.last_error_at ? "last error " + ago(i.last_error_at) : ""), i.registered ? "good" : "bad");
     const last = admin && calls.length ? calls[0] : null;
     tiles(cv, [["Registrations", String(i.registrations ?? 0)], ["Calls", admin ? String(calls.length) : null]].filter(t => t[1] !== null));
     if (last) kv(cv, [["Last call", (last.dir === "out" ? "↗ " : "↙ ") + who(last.from) + " · " + last.result + " · " + ago(last.at)]]);
@@ -682,9 +686,16 @@ function renderMobile() {
     l.failed_reason ? ["Failed", l.failed_reason, "bad"] : ["", undefined]], true);
   if (admin) { const a = el("div", "actions"); a.appendChild(actBtn("↻ Reconnect LTE", "lte-reconnect", "Reconnect LTE? This briefly drops the mobile connection (and Tailscale over it).")); c1.appendChild(a); }
   g.appendChild(c1);
+  if (admin && simInfo && (["sim-pin", "sim-puk"].includes(simInfo.lock) || simInfo.saved || simInfo.auto)) g.appendChild(simCard(simInfo));
+  else if (!admin && l.state === "locked") { const c = card("SIM", "🔒", "red", pill("locked", "bad")); c.appendChild(el("div", "mut", "The SIM needs its PIN. An admin can enter it here after logging in.")); g.appendChild(c); }
   if (admin && netsel) g.appendChild(netselCard(netsel));
   if (admin && me.sms_available && me.ussd) g.appendChild(ussdCard());
   if (s.ims) g.appendChild(imsCard(s.ims, admin));
+  else if (admin && feats && feats.vowifi.installed) {
+    const v = feats.vowifi, c = card("Calls (IMS)", "📞", "green", pill(v.active ? "starting" : "off", v.active ? "ok" : "bad"));
+    c.appendChild(el("div", "mut", v.active ? "dongie-ims is running but not answering yet." : "Calls over IMS (VoWiFi / VoLTE) are off. Pick a mode to keep the SIM registered: calls and SMS then also reach the stick and this page."));
+    c.appendChild(vowifiRow()); g.appendChild(c);
+  }
 
   // cells
   const cl = l.cells || {cells: [], freqs: []};
@@ -807,6 +818,7 @@ function renderNetwork() {
     ts.health.forEach(x => { const sh = x.split(/[:\n]/)[0].slice(0, 90), li = el("div", "hw", sh + (sh.length < x.length ? "…" : "")); li.title = x; d.appendChild(li); });
     c2.appendChild(d);
   }
+  if (admin) c2.appendChild(serveRow());
   if (admin && n) {
     c2.appendChild(el("div", "mut small", "Exit node and subnet routes are shown read-only on purpose: switching them remotely can cut the stick off from the tailnet. Change them on the stick itself if ever needed."));
     const pd = det("ts-peers", "Peers (" + n.peers.filter(p => p.online).length + " online of " + n.peers.length + ")", "health");
@@ -885,6 +897,8 @@ function renderNetwork() {
     const ps = el("div", "pills"); n.dns.forEach(d => ps.appendChild(pill(d + (d === "100.100.100.100" ? " (Tailscale MagicDNS)" : "")))); c7.appendChild(ps);
   }
   g.appendChild(c7);
+
+  if (admin) g.appendChild(firewallCard());
 
   // --- data usage
   const u = s.usage;
@@ -1620,7 +1634,7 @@ function notifySettingsCard() {
   const c = card("Notifications", "🔔", "sky"), list = stg.draft.notify, saved = stg.data.values.notify;
   c.appendChild(stgBadge("notify"));
   if (!list.length) c.appendChild(el("div", "hint", "No targets yet. Add ntfy, a webhook, Meshtastic (a node on port 4403 or muxtastic on 4404) or LXMF (Reticulum, needs lnsd on the stick)."));
-  const names = {sms: "SMS", call: "incoming call", missed_call: "missed call"};
+  const names = {sms: "SMS", call: "incoming call", missed_call: "missed call", voicemail: "voicemail"};
   list.forEach((t, i) => {
     const box = el("div", "stg-target");
     const head = el("div", "stg-row");
@@ -1668,7 +1682,7 @@ function notifySettingsCard() {
     c.appendChild(box);
   });
   const add = el("button", null, "＋ Add target");
-  add.onclick = () => { list.push({kind: "ntfy", name: "", url: "", host: "", channel: 0, to: "", events: ["sms", "call", "missed_call"], include_text: true, token_set: false}); stg.needsRender = true; renderSettings(); };
+  add.onclick = () => { list.push({kind: "ntfy", name: "", url: "", host: "", channel: 0, to: "", events: ["sms", "call", "missed_call", "voicemail"], include_text: true, token_set: false}); stg.needsRender = true; renderSettings(); };
   const a = el("div", "actions"); a.appendChild(add); c.appendChild(a);
   return c;
 }
@@ -1707,7 +1721,7 @@ function notifyCard() {
     c.appendChild(el("div", "hint", "No [[notify]] targets yet. Add ntfy, webhook or Meshtastic (node or muxtastic) targets to /etc/dongie/config.toml and restart dongie."));
     return c;
   }
-  const names = {sms: "SMS", call: "incoming call", missed_call: "missed call"};
+  const names = {sms: "SMS", call: "incoming call", missed_call: "missed call", voicemail: "voicemail"};
   notif.targets.forEach((t, i) => {
     const r = notif.results && notif.results[i];
     const v = t.error ? ["⚠ " + t.error, "bad"] : r ? [r.ok ? "✅ " + (r.detail || "test sent") : "⚠ " + r.error, r.ok ? "good" : "bad"] : [t.events.map(e => names[e] || e).join(", ") + (t.events.includes("sms") && !t.include_text ? " (no SMS text)" : ""), null];
@@ -1771,6 +1785,207 @@ function ussdCard() {
   return c;
 }
 
+// ---------- on/off switches (Tailscale serve, VoWiFi) ----------
+let feats = null;
+const featf = {busy: "", err: ""};
+async function loadFeats(force) {
+  if (me.role !== "admin" || !(tab === "network" || tab === "mobile") || featf.busy) return;
+  try {
+    const r = await api("/api/features"), key = JSON.stringify(r);
+    if (key === loadFeats.key && !force) return;
+    loadFeats.key = key; feats = r;
+    if (!(document.activeElement && ["INPUT", "SELECT"].includes(document.activeElement.tagName))) renderTab();
+  } catch (_) {}
+}
+async function setFeat(name, on, ask) {
+  if (ask && !confirm(ask)) return;
+  featf.busy = name; featf.err = ""; renderTab();
+  try { const r = await api("/api/features/" + name, {method: "POST", json: {on}}); feats = Object.assign({}, feats, r); }
+  catch (e) { featf.err = name + ": " + e.message; }
+  finally { featf.busy = ""; renderTab(); setTimeout(() => loadFeats(true), 4000); }
+}
+function featBtn(name, on, label, ask) { const b = el("button", on ? "pri" : null, featf.busy === name ? "…" : label); b.disabled = !!featf.busy; b.onclick = () => setFeat(name, on, ask); return b; }
+function serveRow() {
+  const w = el("div", "featrow");
+  if (!feats) { w.appendChild(el("span", "mut small", "HTTPS (tailscale serve): …")); return w; }
+  const sv = feats.serve, line = el("div", "small");
+  line.appendChild(el("b", null, "HTTPS on the tailnet: "));
+  if (sv.on && sv.url) { const a = el("a", null, sv.url.replace("https://", "")); a.href = sv.url; line.appendChild(a); line.appendChild(el("span", "mut", " → " + (sv.target || "?"))); }
+  else line.appendChild(el("span", "mut", sv.available ? "off" : "Tailscale not running"));
+  w.appendChild(line);
+  if (sv.funnel) w.appendChild(el("div", "err", "⚠ Tailscale Funnel is ON on this stick: something is reachable from the public internet. dongie never turns Funnel on; check `tailscale funnel status` on the stick."));
+  if (sv.need_operator) w.appendChild(el("div", "hint", "dongie may not change Tailscale here. On the stick, once: sudo tailscale set --operator=dongie"));
+  else if (sv.available) {
+    const a = el("div", "actions");
+    a.appendChild(sv.on ? featBtn("serve", false, "Turn HTTPS off", "Turn off https://" + (sv.url || "").replace("https://", "") + "? The plain http:// address keeps working.")
+                        : featBtn("serve", true, "Turn HTTPS on"));
+    w.appendChild(a);
+    w.appendChild(el("div", "mut small", "tailscale serve: only devices on your tailnet can open it (never Funnel). HTTPS is needed for browser calls (microphone)." + (sv.other ? " Other serve entries on this stick are left alone." : "")));
+  }
+  if (featf.err.startsWith("serve")) w.appendChild(el("div", "err", featf.err));
+  return w;
+}
+const IMS_MODES = [["off", "Off"], ["vowifi", "VoWiFi only"], ["volte", "VoLTE only"], ["volte+vowifi", "VoLTE, VoWiFi as fallback"], ["vowifi+volte", "VoWiFi, VoLTE as fallback"]];
+function accessName(a) { return a === "volte" ? "VoLTE" : "VoWiFi"; }
+function accessSub(i) { return (i.access === "volte" ? "IMS over LTE" : "IMS over the internet (Wi-Fi or LTE data)") + (i.fallback ? " · fallback" : ""); }
+async function setImsMode(m) {
+  const calls = status && status.ims ? status.ims.active_calls : 0;
+  if (calls && !confirm("A call is up. Switching the calling mode ends it. Switch anyway?")) { renderTab(); return; }
+  featf.busy = "vowifi"; featf.err = ""; renderTab();
+  try { const r = await api("/api/ims/mode", {method: "POST", json: {mode: m}}); feats = Object.assign({}, feats, r); }
+  catch (e) { featf.err = "vowifi: " + e.message; }
+  finally { featf.busy = ""; renderTab(); setTimeout(() => { loadFeats(true); refresh && refresh(true); }, 4000); }
+}
+function vowifiRow() {
+  const v = feats.vowifi, w = el("div", "featrow"), row = el("div", "actions");
+  const cur = v.choice === "off" || (!v.active && v.choice !== "on" && !v.enabled_at_boot) ? "off" : (v.mode || "vowifi");
+  const sel = el("select"); sel.disabled = !!featf.busy;
+  IMS_MODES.forEach(([k, label]) => { const o = el("option", null, label); o.value = k; if (k === cur) o.selected = true; sel.appendChild(o); });
+  sel.onchange = () => setImsMode(sel.value);
+  row.appendChild(el("span", "small", "Calling mode ")); row.appendChild(sel); if (featf.busy === "vowifi") row.appendChild(el("span", "mut small", " …"));
+  w.appendChild(row);
+  w.appendChild(el("div", "mut small", "VoWiFi works over any internet (Wi-Fi or the stick's LTE data). VoLTE needs LTE coverage and uses the modem's IMS connection. With a fallback, the second one takes over when the first can't register; the first is retried every 15 min while no call is up. The choice is kept across reboots."));
+  if (featf.err.startsWith("vowifi")) w.appendChild(el("div", "err", featf.err));
+  return w;
+}
+
+// ---------- firewall ----------
+const fw = {data: null, draft: null, busy: false, err: "", ok: ""};
+const FW_ZONE_LABEL = {bridge: "Bridge (USB / hotspot)", tailscale: "Tailscale", wireguard: "WireGuard", wifi: "Wi-Fi client", lte: "LTE"};
+async function loadFw(force) {
+  if (me.role !== "admin" || tab !== "network") return;
+  try {
+    const r = await api("/api/firewall"), key = JSON.stringify(r);
+    if (key === loadFw.key && !force) return;
+    loadFw.key = key; fw.data = r;
+    if (!fw.draft || force) fw.draft = JSON.parse(JSON.stringify(r.config));
+    if (!(document.activeElement && ["INPUT", "SELECT"].includes(document.activeElement.tagName))) renderTab();
+  } catch (_) {}
+}
+async function fwCall(path, body, okText) {
+  fw.busy = true; fw.err = ""; fw.ok = ""; renderTab();
+  try { await api(path, {method: "POST", json: body || {}}); fw.ok = okText; }
+  catch (e) { fw.err = e.message; }
+  finally { fw.busy = false; await loadFw(true); }
+}
+function firewallCard() {
+  const d = fw.data;
+  if (!d) { const c = card("Firewall", "🧱", "red", pill("…")); loadFw(true); return c; }
+  const st = d.status || {}, left = d.pending_left;
+  const c = card("Firewall", "🧱", "red", left ? pill("confirm in " + left + " s", "ok") : !d.enabled ? pill("off", "bad") : st.ok === false ? pill("error", "bad") : pill("on · " + (st.source || "?"), "good"));
+  if (!d.enabled) {
+    c.appendChild(el("div", "mut", "Off: every port the stick listens on is reachable from every network it is in. Turn it on in ⚙️ Settings (firewall); the defaults below apply until you change them."));
+  }
+  if (st.ok === false && st.error) c.appendChild(el("div", "err", "Last apply failed: " + st.error));
+  if (d.file_error) c.appendChild(el("div", "err", "firewall.toml: " + d.file_error + " (defaults in use)"));
+  if (fw.err) c.appendChild(el("div", "err", fw.err));
+  if (fw.ok) c.appendChild(el("div", "good", fw.ok));
+  if (left) {
+    c.appendChild(el("div", "hint", "⏳ New rules are active. If this page still works for you, keep them; otherwise the previous rules come back by themselves in " + left + " s."));
+    const a = el("div", "actions"), k = el("button", "pri", "Keep these rules"), u = el("button", null, "Undo now");
+    k.disabled = u.disabled = fw.busy;
+    k.onclick = () => fwCall("/api/firewall/confirm", {}, "Kept ✓");
+    u.onclick = () => fwCall("/api/firewall/rollback", {}, "Previous rules back");
+    a.appendChild(k); a.appendChild(u); c.appendChild(a);
+    setTimeout(() => loadFw(false), 2000);
+  }
+  const cf = fw.draft, zones = d.zones;
+  // services x zones
+  const tw = el("div", "tscroll"), t = el("table", "fwt"), hr = el("tr");
+  hr.appendChild(el("th", null, ""));
+  zones.forEach(z => hr.appendChild(el("th", null, FW_ZONE_LABEL[z] || z)));
+  t.appendChild(hr);
+  const ifr = el("tr"); ifr.appendChild(el("td", "mut small", "interfaces"));
+  zones.forEach(z => { const td = el("td"), i = el("input"); i.value = (cf.zones[z] || []).join(", "); i.size = 10; i.disabled = fw.busy || !!left;
+    i.onchange = () => { cf.zones[z] = i.value.split(",").map(x => x.trim()).filter(Boolean); }; td.appendChild(i); ifr.appendChild(td); });
+  t.appendChild(ifr);
+  d.services.forEach(sv => {
+    const r = el("tr"), th = el("td", "small", sv.name); th.title = sv.desc; r.appendChild(th);
+    zones.forEach(z => { const td = el("td"), cb = el("input"); cb.type = "checkbox"; cb.disabled = fw.busy || !!left;
+      cb.checked = (cf.allow[z] || []).includes(sv.name);
+      cb.onchange = () => { const l = cf.allow[z] = (cf.allow[z] || []).filter(x => x !== sv.name); if (cb.checked) l.push(sv.name); };
+      td.appendChild(cb); r.appendChild(td); });
+    t.appendChild(r);
+  });
+  const fr = el("tr"); fr.appendChild(el("td", "small", "forward out")); fr.title = "Clients in this zone may use the stick as their router (NAT)";
+  zones.forEach(z => { const td = el("td"), cb = el("input"); cb.type = "checkbox"; cb.disabled = fw.busy || !!left; cb.checked = cf.forward.includes(z);
+    cb.onchange = () => { cf.forward = cf.forward.filter(x => x !== z); if (cb.checked) cf.forward.push(z); }; td.appendChild(cb); fr.appendChild(td); });
+  t.appendChild(fr);
+  tw.appendChild(t); c.appendChild(tw);
+  // custom rules
+  const rd = det("fw-rules", "Own rules (" + cf.rule.length + ")", "rules");
+  cf.rule.forEach((r, n) => {
+    const row = el("div", "fwrule");
+    const zs = el("select"); zones.forEach(z => { const o = el("option", null, FW_ZONE_LABEL[z] || z); o.value = z; o.selected = r.zone === z; zs.appendChild(o); }); zs.onchange = () => { r.zone = zs.value; };
+    const ps = el("select"); ["tcp", "udp"].forEach(p => { const o = el("option", null, p); o.value = p; o.selected = r.proto === p; ps.appendChild(o); }); ps.onchange = () => { r.proto = ps.value; };
+    const mk = (k, ph, size) => { const i = el("input"); i.value = r[k] || ""; i.placeholder = ph; i.size = size; i.oninput = () => { r[k] = i.value.trim(); }; return i; };
+    const del = el("button", null, "✕"); del.title = "remove"; del.onclick = () => { cf.rule.splice(n, 1); renderTab(); };
+    [zs, ps, mk("ports", "8080 or 8000-8100", 12), mk("from", "from (optional) 192.168.1.0/24", 18), mk("comment", "comment", 14), del].forEach(x => { if (fw.busy || left) x.disabled = true; row.appendChild(x); });
+    rd.appendChild(row);
+  });
+  const add = el("button", null, "+ rule"); add.disabled = fw.busy || !!left;
+  add.onclick = () => { cf.rule.push({zone: "wifi", proto: "tcp", ports: "", from: "", comment: ""}); renderTab(); };
+  rd.appendChild(add); c.appendChild(rd);
+  if (!left && d.enabled) {
+    const a = el("div", "actions"), ap = el("button", "pri", fw.busy ? "Applying…" : "Apply"), rs = el("button", null, "Reset");
+    ap.disabled = rs.disabled = fw.busy;
+    ap.onclick = () => fwCall("/api/firewall", {config: cf}, "Applied: keep them within " + d.confirm_secs + " s");
+    rs.onclick = () => { fw.draft = JSON.parse(JSON.stringify(d.config)); fw.err = fw.ok = ""; renderTab(); };
+    a.appendChild(ap); a.appendChild(rs); c.appendChild(a);
+  }
+  c.appendChild(el("div", "mut small", "Always allowed: replies to the stick's own connections, IPv6 neighbour/router messages, DHCP replies, Tailscale and WireGuard tunnel ports" + (st.tunnel_ports && st.tunnel_ports.length ? " (" + st.tunnel_ports.join(", ") + ")" : "") + ". Everything else coming in is dropped. Changes must be confirmed within " + d.confirm_secs + " s, so a mistake can't lock you out. The web UI must stay allowed on the bridge or Tailscale. File: " + (d.file ? "firewall.toml" : "none yet (defaults)") + " in dongie's state dir."));
+  return c;
+}
+
+// ---------- SIM PIN ----------
+let simInfo = null;
+const simf = {pin: "", puk: "", save: false, busy: false, err: "", ok: ""};
+function simCard(x) {
+  // PIN2/PUK2 only guard fixed dialing; ModemManager reports "sim-pin2" on an unlocked SIM
+  const puk = x.lock === "sim-puk", locked = x.lock === "sim-pin" || puk, open = ["none", "sim-pin2", "sim-puk2"].includes(x.lock);
+  const c = card("SIM", locked ? "🔒" : "🔓", locked ? "red" : "green", pill(locked ? (puk ? "PUK needed" : "PIN needed") : open ? "unlocked" : x.lock, locked ? "bad" : open ? "good" : "ok"));
+  kv(c, [["PIN attempts left", x.pin_retries, x.pin_retries == null ? undefined : x.pin_retries >= 2 ? "good" : "bad"], ["PUK attempts left", x.puk_retries, x.puk_retries == null ? undefined : x.puk_retries >= 3 ? "good" : "bad"],
+    ["ICCID", x.iccid && REDACT ? x.iccid.slice(0, 6) + "••••••••" + x.iccid.slice(-2) : x.iccid], ["PIN saved on stick", x.saved ? "yes" : "no", x.saved ? "good" : undefined], ["Auto-unlock", x.auto || undefined]]);
+  if (simf.ok) c.appendChild(el("div", "good", simf.ok));
+  if (simf.err) c.appendChild(el("div", "err", simf.err));
+  if (locked) {
+    const f = el("div", "simf");
+    const mk = (ph, key, max) => { const i = el("input"); i.type = "password"; i.inputMode = "numeric"; i.autocomplete = "off"; i.maxLength = max; i.placeholder = ph; i.value = simf[key]; i.disabled = simf.busy; i.oninput = () => { simf[key] = i.value.replace(/\D/g, ""); if (i.value !== simf[key]) i.value = simf[key]; }; return i; };
+    let pk = null; if (puk) { pk = mk("PUK (8 digits)", "puk", 8); f.appendChild(pk); }
+    const pi = mk(puk ? "new PIN (4-8 digits)" : "PIN (4-8 digits)", "pin", 8); f.appendChild(pi);
+    const lab = el("label", "small"), cb = el("input"); cb.type = "checkbox"; cb.checked = simf.save; cb.disabled = simf.busy; cb.onchange = () => { simf.save = cb.checked; };
+    lab.appendChild(cb); lab.appendChild(document.createTextNode(" Remember the PIN on this stick (unlock by itself after a reboot)")); f.appendChild(lab);
+    const go = el("button", "pri", simf.busy ? "Unlocking…" : "Unlock"); go.disabled = simf.busy;
+    go.onclick = async () => {
+      if (!/^\d{4,8}$/.test(simf.pin)) { simf.err = "PIN: 4-8 digits"; renderTab(); return; }
+      if (puk && !/^\d{8}$/.test(simf.puk)) { simf.err = "PUK: 8 digits"; renderTab(); return; }
+      const left = puk ? x.puk_retries : x.pin_retries, last = left === 1;
+      if (last && !confirm("Only ONE " + (puk ? "PUK" : "PIN") + " attempt is left. " + (puk ? "A wrong PUK now blocks the SIM for good." : "A wrong PIN now locks the SIM with its PUK.") + "\n\nTry this " + (puk ? "PUK" : "PIN") + "?")) return;
+      simf.busy = true; simf.err = simf.ok = ""; renderTab();
+      try { simInfo = await api("/api/sim/unlock", {method: "POST", json: {pin: simf.pin, puk: puk ? simf.puk : "", save: simf.save, last_try: last}}); simf.ok = "Unlocked ✓" + (simf.save ? " PIN saved." : "") + " The modem now registers; LTE follows in ~30 s."; simf.pin = simf.puk = ""; }
+      catch (e) { simf.err = e.message; loadSim(true); }
+      finally { simf.busy = false; renderTab(); }
+    };
+    pi.onkeydown = e => { if (e.key === "Enter") go.onclick(); };
+    f.appendChild(go); c.appendChild(f);
+    c.appendChild(el("div", "hint", puk ? "⚠ After 3 wrong PINs the SIM wants its PUK (on the card the SIM came on). 10 wrong PUKs block the SIM for good." : "⚠ 3 wrong PINs lock the SIM with its PUK. A saved PIN is only tried automatically while 2+ attempts are left, and deleted if the SIM rejects it."));
+  } else if (x.saved) {
+    const a = el("div", "actions"), b = el("button", null, "Forget saved PIN"); b.disabled = simf.busy;
+    b.onclick = async () => { if (!confirm("Delete the saved PIN? After the next reboot you'll have to enter it here again.")) return; try { simInfo = await api("/api/sim/forget", {method: "POST", json: {}}); simf.ok = "Saved PIN deleted."; } catch (e) { simf.err = e.message; } renderTab(); };
+    a.appendChild(b); c.appendChild(a);
+  }
+  return c;
+}
+async function loadSim(force) {
+  if (me.role !== "admin" || tab !== "mobile" || simf.busy) return;
+  try {
+    const r = await api("/api/sim"), key = JSON.stringify(r);
+    if (key === loadSim.key && !force) return;
+    loadSim.key = key; simInfo = r;
+    if (!(document.activeElement && document.activeElement.tagName === "INPUT")) renderTab();
+  } catch (_) {}
+}
+
 function netselCard(n) {
   const p = n.pending, busy = p && !p.result;
   const c = card("Network", "🛰", "teal", pill(n.network ? "manual" : "automatic", n.network ? "ok" : "good"));
@@ -1809,14 +2024,15 @@ async function loadNetSel(force) {
 }
 
 // ---------- Wi-Fi calling (dongie-ims) ----------
-const CALL_CLS = {answered: "good", ringing: "ok", dialing: "ok", missed: "bad", rejected: "bad", failed: "bad"};
+const CALL_CLS = {answered: "good", voicemail: "ok", ringing: "ok", dialing: "ok", missed: "bad", rejected: "bad", failed: "bad"};
 function imsCard(i, admin) {
-  const c = card("Wi-Fi Calling", "📞", "green", pill(i.registered ? "registered" : (i.status || "down"), i.registered ? "good" : i.status === "connecting" || i.status === "reconnecting" ? "ok" : "bad"));
-  hero(c, i.registered ? "VoWiFi" : "offline", i.registered ? "IMS over LTE · since " + ago(i.since).replace(" ago", "") : (i.last_error_at ? "last error " + ago(i.last_error_at) : ""), i.registered ? "good" : "bad");
+  const c = card("Calls (IMS)", "📞", "green", pill(i.registered ? "registered" : (i.status || "down"), i.registered ? "good" : i.status === "connecting" || i.status === "reconnecting" ? "ok" : "bad"));
+  hero(c, i.registered ? accessName(i.access) : "offline", i.registered ? accessSub(i) + " · since " + ago(i.since).replace(" ago", "") : (i.last_error_at ? "last error " + ago(i.last_error_at) : ""), i.registered ? "good" : "bad");
   kv(c, [["Registrations", String(i.registrations ?? 0)], ["Incoming calls", i.on_call === "reject" ? "rejected (busy)" : "ring · answer in browser"],
     ["Number", admin ? i.msisdn : undefined], ["Inner IP", admin ? i.inner_ip : undefined],
     ["P-CSCF", admin && i.pcscf && i.pcscf.length ? i.pcscf.join(", ") : undefined],
     ["Last error", admin && i.last_error ? i.last_error : undefined, "bad"], ["dongie-ims", i.version]], true);
+  if (admin && feats && feats.vowifi.installed) c.appendChild(vowifiRow());
   if (admin) {
     if (callsSupported()) {
       const d = el("div", "dial"), inp = el("input"); inp.placeholder = "+34… or 6…"; inp.inputMode = "tel"; inp.id = "dialTo"; inp.value = dialDraft;
@@ -1840,7 +2056,8 @@ function imsCard(i, admin) {
         const r = el("tr");
         r.appendChild(el("td", null, new Date(x.at * 1000).toLocaleString()));
         r.appendChild(el("td", null, (x.dir === "out" ? "↗ " : "↙ ") + who(x.from)));
-        const rc = el("td"); rc.appendChild(pill(x.result + (x.ended && x.ended_at && x.result === "answered" ? " · " + dur(x.ended_at - x.at).trim() : ""), CALL_CLS[x.result])); r.appendChild(rc);
+        const vmTxt = x.result === "voicemail" ? (x.voicemail ? "📼 " + mmss(x.voicemail_secs) : "📼 no message") : null;
+        const rc = el("td"); rc.appendChild(pill(vmTxt || (x.result + (x.ended && x.ended_at && x.result === "answered" ? " · " + dur(x.ended_at - x.at).trim() : "")), CALL_CLS[x.result])); r.appendChild(rc);
         r.appendChild(el("td", null, x.codec || (x.codecs || []).join(", ") || "—"));
         const ac = el("td");
         if (!x.ended && x.result === "ringing") {
@@ -1855,8 +2072,120 @@ function imsCard(i, admin) {
       });
       tw.appendChild(t); c.appendChild(tw);
     }
+    c.appendChild(voicemailBox());
   }
   return c;
+}
+
+// ---------- voicemail ----------
+const vmst = {data: null, busy: false, err: "", ok: "", rec: null, draft: null};
+function mmss(s) { s = s || 0; return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+async function loadVm(force) {
+  if (me.role !== "admin" || tab !== "mobile") return;
+  try {
+    const r = await api("/api/ims/voicemail"), key = JSON.stringify(r);
+    if (key === loadVm.key && !force) return;
+    loadVm.key = key; vmst.data = r; if (!vmst.draft || force) vmst.draft = Object.assign({}, r.config);
+    if (!(document.activeElement && ["INPUT", "SELECT", "AUDIO"].includes(document.activeElement.tagName)) && !vmst.rec) renderTab();
+  } catch (_) {}
+}
+// any audio the browser can decode -> WAV, PCM 16-bit mono 16 kHz (what the stick plays)
+async function toWav16k(blob) {
+  const buf = await blob.arrayBuffer();
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const audio = await ac.decodeAudioData(buf); ac.close();
+  const secs = Math.min(audio.duration, 60);
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(secs * 16000)), 16000);
+  const src = off.createBufferSource(); src.buffer = audio; src.connect(off.destination); src.start();
+  const out = (await off.startRendering()).getChannelData(0);
+  const b = new ArrayBuffer(44 + out.length * 2), v = new DataView(b), w = (o, t) => [...t].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + out.length * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, out.length * 2, true);
+  for (let i = 0; i < out.length; i++) v.setInt16(44 + 2 * i, Math.max(-1, Math.min(1, out[i])) * 32767, true);
+  return new Blob([b], {type: "audio/wav"});
+}
+async function uploadGreeting(blob) {
+  vmst.busy = true; vmst.err = vmst.ok = ""; renderTab();
+  try {
+    const wav = await toWav16k(blob);
+    const r = await fetch("/api/ims/greeting", {method: "POST", credentials: "same-origin", headers: {"X-Dongie": "1", "Content-Type": "audio/wav"}, body: wav});
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "HTTP " + r.status);
+    vmst.ok = "Greeting saved (" + j.secs.toFixed(1) + " s)"; if (vmst.draft) vmst.draft.greeting = "file";
+  } catch (e) { vmst.err = "Greeting: " + e.message; }
+  finally { vmst.busy = false; await loadVm(false); renderTab(); }
+}
+async function recordGreeting() {
+  if (vmst.rec) { vmst.rec.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true}), chunks = [], mr = new MediaRecorder(stream);
+    mr.ondataavailable = e => chunks.push(e.data);
+    mr.onstop = () => { stream.getTracks().forEach(t => t.stop()); vmst.rec = null; uploadGreeting(new Blob(chunks, {type: mr.mimeType})); };
+    vmst.rec = mr; mr.start(); renderTab();
+    setTimeout(() => { if (vmst.rec === mr) mr.stop(); }, 60000);
+  } catch (e) { vmst.err = "Microphone: " + e.message; renderTab(); }
+}
+function voicemailBox() {
+  const box = el("div", "vmbox"), d = vmst.data;
+  box.appendChild(el("div", "vmhead", "📼 Voicemail"));
+  if (!d) { loadVm(true); box.appendChild(el("div", "mut small", "…")); return box; }
+  const cf = vmst.draft || d.config || {};
+  if (vmst.err) box.appendChild(el("div", "err", vmst.err));
+  if (vmst.ok) box.appendChild(el("div", "good", vmst.ok));
+  // settings
+  const row = el("div", "vmrow");
+  const mode = el("select"); [["off", "Off: the carrier's voicemail as usual"], ["delay", "After the call rang for…"], ["now", "Take every call right away"]].forEach(([k, l]) => { const o = el("option", null, l); o.value = k; o.selected = cf.mode === k; mode.appendChild(o); });
+  mode.onchange = () => { cf.mode = mode.value; renderTab(); };
+  row.appendChild(mode);
+  if (cf.mode === "delay") { const n = el("input"); n.type = "number"; n.min = 1; n.max = 120; n.value = cf.delay_secs || 20; n.style.width = "4.5em"; n.oninput = () => { cf.delay_secs = +n.value; }; row.appendChild(n); row.appendChild(el("span", "small", "s")); }
+  box.appendChild(row);
+  if (cf.mode !== "off") {
+    const r2 = el("div", "vmrow"), g = el("select");
+    r2.appendChild(el("span", "small", "Greeting"));
+    [["none", "nothing"], ["beep", "beep only"], ["file", "my greeting + beep"]].forEach(([k, l]) => { const o = el("option", null, l); o.value = k; o.selected = cf.greeting === k; g.appendChild(o); });
+    g.onchange = () => { cf.greeting = g.value; renderTab(); };
+    r2.appendChild(g);
+    const mx = el("input"); mx.type = "number"; mx.min = 10; mx.max = 300; mx.value = cf.max_secs || 120; mx.style.width = "4.5em"; mx.oninput = () => { cf.max_secs = +mx.value; };
+    r2.appendChild(el("span", "small", "max")); r2.appendChild(mx); r2.appendChild(el("span", "small", "s"));
+    box.appendChild(r2);
+    // greeting file
+    const r3 = el("div", "vmrow");
+    if (d.greeting_file) { const a = el("audio"); a.controls = true; a.preload = "none"; a.src = "/api/ims/greeting?t=" + d.greeting_file.bytes; r3.appendChild(a); r3.appendChild(el("span", "mut small", d.greeting_file.secs + " s")); }
+    else r3.appendChild(el("span", "mut small", "no greeting file yet"));
+    const up = el("input"); up.type = "file"; up.accept = "audio/*"; up.style.display = "none"; up.onchange = () => { if (up.files[0]) uploadGreeting(up.files[0]); };
+    const ub = el("button", null, "Upload file…"); ub.disabled = vmst.busy || !!vmst.rec; ub.onclick = () => up.click();
+    const rb = el("button", vmst.rec ? "pri" : null, vmst.rec ? "⏹ Stop recording" : "🎙 Record"); rb.disabled = vmst.busy || !window.isSecureContext;
+    if (!window.isSecureContext) rb.title = "Recording needs the HTTPS page (microphone)";
+    rb.onclick = recordGreeting;
+    r3.appendChild(up); r3.appendChild(ub); r3.appendChild(rb);
+    box.appendChild(r3);
+  }
+  const a = el("div", "actions"), save = el("button", "pri", vmst.busy ? "…" : "Save");
+  save.disabled = vmst.busy || !!vmst.rec;
+  save.onclick = async () => {
+    vmst.busy = true; vmst.err = vmst.ok = ""; renderTab();
+    try { await api("/api/ims/voicemail/config", {method: "POST", json: {mode: cf.mode, delay_secs: cf.delay_secs || 20, greeting: cf.greeting || "beep", max_secs: cf.max_secs || 120}}); vmst.ok = "Saved ✓"; }
+    catch (e) { vmst.err = e.message; } finally { vmst.busy = false; await loadVm(true); }
+  };
+  a.appendChild(save); box.appendChild(a);
+  box.appendChild(el("div", "mut small", "When the stick takes a call, the carrier's own voicemail doesn't. Recordings are kept " + (d.persist ? "on flash (persist on; 30 messages / 20 MB at most, oldest go first)" : "in RAM only (persist off: gone after a reboot)") + ". \"After…\" lets it ring in the browser first; keep it below the carrier's voicemail timeout (usually 20-30 s)."));
+  // recordings
+  const list = d.voicemail || [];
+  if (list.length) {
+    const tw = el("div", "tscroll"), t = el("table"), hr = el("tr");
+    ["When", "From", "Length", "", ""].forEach(x => hr.appendChild(el("th", null, x))); t.appendChild(hr);
+    list.forEach(v => {
+      const r = el("tr");
+      r.appendChild(el("td", null, new Date(v.at * 1000).toLocaleString()));
+      r.appendChild(el("td", null, who(v.from)));
+      r.appendChild(el("td", null, mmss(v.secs)));
+      const pc = el("td"), au = el("audio"); au.controls = true; au.preload = "none"; au.src = "/api/ims/voicemail/" + v.id + ".wav"; pc.appendChild(au); r.appendChild(pc);
+      const dc = el("td"), del = el("button", "small", "🗑"); del.title = "Delete";
+      del.onclick = async () => { if (!confirm("Delete this voicemail?")) return; try { await api("/api/ims/voicemail/" + v.id, {method: "DELETE"}); await loadVm(true); } catch (e) { alert(e.message); } };
+      dc.appendChild(del); r.appendChild(dc); t.appendChild(r);
+    });
+    tw.appendChild(t); box.appendChild(tw);
+  } else box.appendChild(el("div", "mut small", "No voicemails."));
+  return box;
 }
 async function loadCalls(force) {
   if (me.role !== "admin" || !status || !status.ims) return;
@@ -2110,7 +2439,9 @@ function onHash() {
   if (tab === "settings") loadSettings();
   if (tab === "reticulum") loadReticulum(true);
   if (tab === "mesh") loadMesh(true);
-  if (tab === "mobile") { loadCalls(true); loadNetSel(true); }
+  if (tab === "mobile") { loadCalls(true); loadNetSel(true); loadSim(true); loadVm(true); }
+  if (tab === "mobile" || tab === "network") loadFeats(true);
+  if (tab === "network") loadFw(true);
 }
 window.addEventListener("hashchange", onHash);
 let resizeT = null;
@@ -2154,10 +2485,11 @@ $("text").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey
   setInterval(() => { if (!away()) refresh(); }, 5000);
   setInterval(() => { if (!away() || ++msgTick % 6 === 0) loadMsgs(); }, 5000);            // hidden: every 30 s
   setInterval(() => { ++callTick; if (liveCall() || callTick % (away() ? 5 : 2) === 0) loadCalls(); }, 2000); // 2 s in a call, else 4 s / 10 s hidden
-  setInterval(() => { if (!away()) loadNetSel(false); }, 5000);
+  setInterval(() => { if (!away()) { loadNetSel(false); loadSim(false); loadVm(false); } }, 5000);
+  setInterval(() => { if (!away()) loadFeats(false); }, 30000);
   document.addEventListener("visibilitychange", () => {
     if (away()) return;
-    refresh(true); loadMsgs(); loadCalls(true); loadNetSel(false); loadReticulum(true); loadMesh(true);
+    refresh(true); loadMsgs(); loadCalls(true); loadNetSel(false); loadSim(false); loadFeats(false); loadReticulum(true); loadMesh(true);
   });
   setInterval(() => { if (pcCallId != null) renderCallBar(); }, 1000);
 })();

@@ -196,8 +196,16 @@ pub async fn wifi_link(iface: &str) -> Option<WifiLink> {
 
 /// The snapshot of the current status round, shared by its parts (LTE, hotspot,
 /// Wi-Fi) for a moment so one round takes it once.
+static LAST: tokio::sync::Mutex<Option<(std::time::Instant, Snapshot)>> = tokio::sync::Mutex::const_new(None);
+
+/// Forget the cached snapshot. cmd.rs calls this after every `nmcli` run:
+/// a connection added and then looked up within the cache's 2 s used to be
+/// "missing" ("no such Wi-Fi connection" right after joining a new network).
+pub async fn invalidate() {
+    *LAST.lock().await = None;
+}
+
 pub async fn shared() -> Option<Snapshot> {
-    static LAST: tokio::sync::Mutex<Option<(std::time::Instant, Snapshot)>> = tokio::sync::Mutex::const_new(None);
     let mut l = LAST.lock().await;
     if let Some((at, s)) = l.as_ref() {
         if at.elapsed() < std::time::Duration::from_secs(2) {
@@ -213,6 +221,16 @@ pub async fn shared() -> Option<Snapshot> {
             eprintln!("nm: D-Bus snapshot failed: {e}");
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    #[tokio::test]
+    async fn invalidate_drops_the_cached_snapshot() {
+        *super::LAST.lock().await = Some((std::time::Instant::now(), super::Snapshot::default()));
+        super::invalidate().await;
+        assert!(super::LAST.lock().await.is_none());
     }
 }
 

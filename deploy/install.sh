@@ -1,8 +1,8 @@
 #!/bin/bash
 # SPDX-License-Identifier: EUPL-1.2
 # Install/upgrade dongie on the dongle. Run as root from a directory containing:
-#   dongie (aarch64 binary), dongie.service, dongie-update.service, sudoers-dongie,
-#   50-dongie.rules, config.toml
+#   dongie (aarch64 binary), dongie.service, dongie-update.service, dongie-firewall.service, sudoers-dongie,
+#   50-dongie.rules, config.toml, dongie-ims.service.d/dongie.conf
 set -euo pipefail
 cd "$(dirname "$0")"
 [ "$(id -u)" -eq 0 ] || { echo "run as root"; exit 1; }
@@ -26,10 +26,13 @@ chgrp dongie /etc/dongie/users && chmod 0640 /etc/dongie/users
 
 install -m 0644 -o root -g root dongie.service /etc/systemd/system/dongie.service
 install -m 0644 -o root -g root dongie-update.service /etc/systemd/system/dongie-update.service
-# let the dongie user change Tailscale prefs (exit node, accept routes) from the dashboard
+install -m 0644 -o root -g root dongie-firewall.service /etc/systemd/system/dongie-firewall.service
+# VoWiFi on/off switch in the UI (harmless when dongie-ims isn't installed)
+install -D -m 0644 -o root -g root dongie-ims.service.d/dongie.conf /etc/systemd/system/dongie-ims.service.d/dongie.conf
+# let the dongie user read Tailscale prefs and switch `tailscale serve` from the dashboard
 command -v tailscale >/dev/null && tailscale set --operator=dongie || true
 
 systemctl daemon-reload
-systemctl enable dongie.service
+systemctl enable dongie.service dongie-firewall.service
 systemctl restart dongie.service
 echo "installed. users: $(dongie user list | wc -l) — add one with: sudo dongie user add <name>"

@@ -243,6 +243,10 @@ pub struct Sms {
     pub store: Arc<Mutex<Store>>,
     /// one USSD session at a time (see ussd.rs)
     pub(crate) ussd_lock: Arc<Mutex<()>>,
+    /// one SIM unlock at a time, manual or automatic (see sim.rs)
+    pub(crate) sim_lock: Arc<Mutex<()>>,
+    /// last thing the automatic SIM unlock did
+    pub(crate) sim_auto: Arc<Mutex<Option<String>>>,
 }
 
 pub(crate) async fn proxy<'a>(conn: &'a Connection, path: &str, iface: &'static str) -> zbus::Result<Proxy<'a>> {
@@ -259,7 +263,13 @@ pub(crate) async fn proxy<'a>(conn: &'a Connection, path: &str, iface: &'static 
 impl Sms {
     pub async fn connect(max: usize) -> zbus::Result<Sms> {
         let conn = Connection::system().await?;
-        Ok(Sms { conn, store: Arc::new(Mutex::new(Store::new(max))), ussd_lock: Arc::new(Mutex::new(())) })
+        Ok(Sms {
+            conn,
+            store: Arc::new(Mutex::new(Store::new(max))),
+            ussd_lock: Arc::new(Mutex::new(())),
+            sim_lock: Arc::new(Mutex::new(())),
+            sim_auto: Arc::new(Mutex::new(None)),
+        })
     }
 
     pub(crate) async fn modem_path(&self) -> zbus::Result<String> {
@@ -274,14 +284,28 @@ impl Sms {
     /// Poll forever: ingest new SMS and delivery reports.
     pub async fn run(self) {
         let mut modem: Option<String> = None;
+        // a locked or SIM-less modem fails every poll the same way: log it once
+        let mut last_err = String::new();
         loop {
             if modem.is_none() {
                 modem = self.modem_path().await.ok();
             }
             if let Some(m) = modem.clone() {
-                if let Err(e) = self.poll_once(&m).await {
-                    eprintln!("sms poll: {e}");
-                    modem = None; // modem path may have changed (MM restart, modem reset)
+                match self.poll_once(&m).await {
+                    Ok(()) => {
+                        if !last_err.is_empty() {
+                            eprintln!("sms poll: working again");
+                            last_err.clear();
+                        }
+                    }
+                    Err(e) => {
+                        let e = e.to_string();
+                        if e != last_err {
+                            eprintln!("sms poll: {e} (repeats are not logged)");
+                            last_err = e;
+                        }
+                        modem = None; // modem path may have changed (MM restart, modem reset)
+                    }
                 }
             }
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;

@@ -13,8 +13,11 @@ mod blob;
 mod cmd;
 mod config;
 mod contacts;
+mod features;
+mod firewall;
 mod history;
 mod ims;
+mod listen;
 mod mesh;
 mod muxcfg;
 mod net;
@@ -24,6 +27,7 @@ mod notify;
 mod persist;
 mod reticulum;
 mod settings;
+mod sim;
 mod sms;
 mod squeeze;
 mod status;
@@ -45,7 +49,8 @@ fn usage() -> ! {
         "dongie {}\n\
          usage:\n  dongie serve [-c CONFIG]\n  dongie user list\n  dongie user add NAME [--role admin|guest]\n  \
          dongie user passwd NAME\n  dongie user del NAME\n  dongie notify test\n  \
-         dongie wg show NAME | wg apply NAME EDIT.json | wg create NAME EDIT.json\n\
+         dongie wg show NAME | wg apply NAME EDIT.json | wg create NAME EDIT.json\n  \
+         dongie firewall-show (print the nftables rules)   dongie firewall-apply (root: load them)\n\
          config defaults to {DEFAULT_CONFIG} (or $DONGIE_CONFIG)",
         env!("CARGO_PKG_VERSION")
     );
@@ -79,8 +84,29 @@ fn main() {
         ["wg", "apply", name, file] => wg_cli(name, Some(file)),
         ["wg", "create", name, file] => wg_create_cli(name, file),
         ["update-apply"] => update_apply(&cfg),
+        ["firewall-apply"] => firewall_apply(&cfg),
+        ["firewall-show"] => firewall_show(&cfg),
         ["version"] | ["--version"] => println!("dongie {}", env!("CARGO_PKG_VERSION")),
         _ => usage(),
+    }
+}
+
+/// Root helper behind dongie-firewall.service: load the nftables rules.
+fn firewall_apply(cfg: &config::Config) {
+    if let Err(e) = firewall::helper(cfg) {
+        eprintln!("firewall-apply: {e}");
+        std::process::exit(1);
+    }
+}
+
+/// Print the ruleset the current firewall.toml (or the defaults) would load.
+fn firewall_show(cfg: &config::Config) {
+    match firewall::load(&cfg.state_dir) {
+        Ok(c) => print!("{}", firewall::ruleset(&c, &firewall::Ports::from_config(cfg))),
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
     }
 }
 
@@ -312,7 +338,10 @@ fn serve(cfg: config::Config, cfg_path: String) {
         };
         if let Some(s) = &sms {
             tokio::spawn(s.clone().run());
+            tokio::spawn(s.clone().sim_auto_unlock(cfg.state_dir.clone()));
         }
+        tokio::spawn(features::vowifi_boot(cfg.state_dir.clone()));
+        tokio::spawn(firewall::watchdog(cfg.state_dir.clone(), cfg.firewall));
         tokio::spawn(ims.clone().run(sms.clone(), events));
 
         let netsel = netsel::NetSel::new(cfg.lte_connection.clone());
@@ -364,35 +393,15 @@ fn serve(cfg: config::Config, cfg_path: String) {
             eprintln!("no users yet — create one with: sudo dongie user add <name>");
         }
 
-        let web_app = app.clone();
         for addr in cfg.web_listen_extra.clone() {
-            let extra_app = app.clone();
-            tokio::spawn(async move {
-                let l = web::bind_retry(&addr).await;
-                if let Err(e) = axum::serve(
-                    l,
-                    web::web_router(extra_app).into_make_service_with_connect_info::<std::net::SocketAddr>(),
-                )
-                .await
-                {
-                    eprintln!("web server {addr}: {e}");
-                }
-            });
+            let a = app.clone();
+            tokio::spawn(listen::serve(addr, move || web::web_router(a.clone())));
         }
-        let web_addr = cfg.web_listen.clone();
-        let web = tokio::spawn(async move {
-            let l = web::bind_retry(&web_addr).await;
-            axum::serve(l, web::web_router(web_app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await
-        });
+        let web_app = app.clone();
+        let web = tokio::spawn(listen::serve(cfg.web_listen.clone(), move || web::web_router(web_app.clone())));
         if cfg.api_enabled {
-            let api_addr = cfg.api_listen.clone();
-            let api_app = app.clone();
-            tokio::spawn(async move {
-                let l = web::bind_retry(&api_addr).await;
-                if let Err(e) = axum::serve(l, web::api_router(api_app)).await {
-                    eprintln!("api server: {e}");
-                }
-            });
+            let a = app.clone();
+            tokio::spawn(listen::serve(cfg.api_listen.clone(), move || web::api_router(a.clone())));
         }
 
         let usage_on_exit = usage.clone();
