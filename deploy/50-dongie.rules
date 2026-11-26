@@ -28,5 +28,10 @@ polkit.addRule(function(action, subject) {
         ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0) {
         return polkit.Result.YES;
     }
+    // Update button: start the root helper that verifies + installs a release
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") === "dongie-update.service" && action.lookup("verb") === "start") {
+        return polkit.Result.YES;
+    }
     return polkit.Result.NOT_HANDLED;
 });

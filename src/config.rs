@@ -24,6 +24,11 @@ pub struct Config {
     /// Where `anonymous_guest` applies: client networks as CIDR, e.g. the
     /// bridge/hotspot and the tailnet. Empty = from everywhere the web UI listens.
     pub guest_networks: Vec<String>,
+    /// Look for a new dongie release once a day (GitHub API, ~5 KB). The UI
+    /// shows a badge; installing is always an admin's click.
+    pub update_check: bool,
+    /// GitHub owner/name the releases come from.
+    pub update_repo: String,
     pub users_file: PathBuf,
     pub state_dir: PathBuf,
     pub qmi_device: String,
@@ -126,6 +131,8 @@ impl Default for Config {
             api_allow_sms: true,
             anonymous_guest: true,
             guest_networks: vec![],
+            update_check: true,
+            update_repo: "derpyspike/dongie-rs".into(),
             users_file: "/etc/dongie/users".into(),
             state_dir: "/var/lib/dongie".into(),
             qmi_device: "/dev/wwan0qmi0".into(),

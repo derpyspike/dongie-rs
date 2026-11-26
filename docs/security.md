@@ -19,6 +19,14 @@
   - Wi-Fi calling: dongie-ims runs as **root** in its own process (GPL-3.0, needs the
     modem). dongie only talks to it over `/run/dongie-ims/api.sock` (`root:dongie`, 0660,
     no TCP). Guests see only "registered / since"; number, IPs and the call log are admin only.
+- **Updates:** dongie (unprivileged) downloads a release only when an admin clicks Update,
+  then starts `dongie-update.service` (polkit: exactly that unit, verb start). That root helper
+  copies the staged files into `/run/dongie-update` (root only), and installs only if
+  `SHA256SUMS.asc` is a valid signature by the release key built into the installed dongie
+  (`gpgv`), the binary matches `SHA256SUMS`, it says the expected version and that version is
+  higher than the installed one (no downgrade to an old signed release). GitHub holds no
+  signing key. It keeps `dongie.bak` and restores it if the new version doesn't answer within
+  60 s.
 - **Deliberately not offered:** switching the Tailscale **exit node** or **accept-routes**.
   Changing them remotely can cut the stick off from the tailnet; they are shown read-only.
 - **Hotspot / USB access** (`web_listen_extra`): only the web UI (8040) is offered there,

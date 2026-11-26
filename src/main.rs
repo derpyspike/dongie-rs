@@ -27,6 +27,7 @@ mod settings;
 mod sms;
 mod squeeze;
 mod status;
+mod update;
 mod usage;
 mod users;
 mod ussd;
@@ -77,8 +78,18 @@ fn main() {
         ["wg", "show", name] => wg_cli(name, None),
         ["wg", "apply", name, file] => wg_cli(name, Some(file)),
         ["wg", "create", name, file] => wg_create_cli(name, file),
+        ["update-apply"] => update_apply(&cfg),
         ["version"] | ["--version"] => println!("dongie {}", env!("CARGO_PKG_VERSION")),
         _ => usage(),
+    }
+}
+
+/// Root helper behind dongie-update.service: verify + install a staged release.
+fn update_apply(cfg: &config::Config) {
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("tokio runtime");
+    if let Err(e) = rt.block_on(update::helper(cfg)) {
+        eprintln!("update-apply: {e}");
+        std::process::exit(1);
     }
 }
 
@@ -324,6 +335,12 @@ fn serve(cfg: config::Config, cfg_path: String) {
             });
         }
 
+        let update = update::shared();
+        update.write().await.result = update::read_result();
+        if cfg.update_check {
+            tokio::spawn(update::run(cfg.update_repo.clone(), update.clone()));
+        }
+
         let app = web::App {
             cfg: cfg.clone(),
             cfg_path: cfg_path.clone(),
@@ -334,6 +351,7 @@ fn serve(cfg: config::Config, cfg_path: String) {
             ims,
             netsel,
             contacts,
+            update,
             // systemd sets $RUNTIME_DIRECTORY (/run/dongie) via RuntimeDirectory=
             sessions: Arc::new(match std::env::var_os("RUNTIME_DIRECTORY") {
                 Some(d) => users::Sessions::with_runtime_dir(std::path::Path::new(&d), &cfg.users_file),

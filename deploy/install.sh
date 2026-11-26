@@ -1,7 +1,8 @@
 #!/bin/bash
 # SPDX-License-Identifier: EUPL-1.2
 # Install/upgrade dongie on the dongle. Run as root from a directory containing:
-#   dongie (aarch64 binary), dongie.service, sudoers-dongie, 50-dongie.rules, config.toml
+#   dongie (aarch64 binary), dongie.service, dongie-update.service, sudoers-dongie,
+#   50-dongie.rules, config.toml
 set -euo pipefail
 cd "$(dirname "$0")"
 [ "$(id -u)" -eq 0 ] || { echo "run as root"; exit 1; }
@@ -24,6 +25,7 @@ install -d -m 0750 -o root -g dongie /etc/dongie
 chgrp dongie /etc/dongie/users && chmod 0640 /etc/dongie/users
 
 install -m 0644 -o root -g root dongie.service /etc/systemd/system/dongie.service
+install -m 0644 -o root -g root dongie-update.service /etc/systemd/system/dongie-update.service
 # let the dongie user change Tailscale prefs (exit node, accept routes) from the dashboard
 command -v tailscale >/dev/null && tailscale set --operator=dongie || true
 

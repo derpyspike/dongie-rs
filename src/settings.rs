@@ -28,6 +28,7 @@ pub const EDITABLE: &[&str] = &[
     "api_allow_sms",
     "anonymous_guest",
     "guest_networks",
+    "update_check",
     "hotspot_connection",
     "lte_connection",
     "poll_secs",
@@ -93,6 +94,9 @@ pub fn validate(c: &Config) -> Result<(), String> {
     }
     if let Some(a) = c.web_listen_extra.iter().find(|a| !valid_addr(a)) {
         return Err(format!("web_listen_extra: {a:?} is not ip:port"));
+    }
+    if !crate::update::valid_repo(&c.update_repo) {
+        return Err(format!("update_repo: {:?} is not owner/name", c.update_repo));
     }
     if let Some(n) = c.guest_networks.iter().find(|n| crate::wgedit::parse_cidr(n).is_none()) {
         return Err(format!("guest_networks: {n:?} is not a network like 192.168.100.0/24"));

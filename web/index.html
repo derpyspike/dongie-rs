@@ -112,6 +112,7 @@ table.svctab td:not(:first-child),table.svctab th:not(:first-child){text-align:r
 @media (max-width:520px){.wgn b+.mono{display:none}}
 .wgsub{font-size:12px;color:var(--subtext0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wgs{text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.card details>pre.small{white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;background:var(--mantle);padding:8px 10px;border-radius:10px;margin:6px 0}
 details.wgmore>summary{cursor:pointer;font-size:12.5px;color:var(--subtext0);padding:4px 6px;font-weight:600}
 .wgact{border-top:1px solid var(--surface0);padding-top:10px}
 dialog.wgdlg{max-width:720px;width:calc(100% - 24px);padding:0;overflow:hidden}
@@ -537,6 +538,7 @@ function renderHeader() {
   ch.appendChild(chip("Tailscale", s.tailscale.state || "?", stateCls(s.tailscale.state)));
   const wm = (s.wifi || {}).mode;
   ch.appendChild(chip("Wi-Fi", wm === "client" ? "→ " + ((s.wifi.station || {}).ssid || "client") : wm === "hotspot" ? s.hotspot.client_count + " client" + (s.hotspot.client_count === 1 ? "" : "s") : "off", wm === "off" ? "ok" : ""));
+  if (upd && upd.newer) { const u = chip("⬆", "v" + upd.latest, "ok"); u.title = "dongie v" + upd.latest + " is available (installed: v" + upd.current + ")"; u.style.cursor = "pointer"; u.onclick = () => go("system"); ch.appendChild(u); }
   const tmax = Math.max(...s.system.temps.map(t => t[1]), 0);
   if (s.system.temps.length) ch.appendChild(chip("🌡", tmax.toFixed(0) + " °C", tmax < 60 ? "" : tmax < 75 ? "ok" : "bad"));
 }
@@ -993,6 +995,50 @@ function wifiSettings(w) {
   return c;
 }
 
+// ---------- updates ----------
+let upd = null, updMsg = "", updPoll = null;
+async function loadUpdate() {
+  try { upd = await api("/api/update"); } catch (e) { return; }
+  // the helper restarted dongie with the new version: load the new page
+  if (me.version && upd.current && upd.current !== me.version) { location.reload(); return; }
+  if (updPoll && !["downloading", "installing"].includes(upd.state)) { clearInterval(updPoll); updPoll = null; }
+  if (status) { renderHeader(); if (tab === "system") renderTab(); }
+}
+function updateCard(admin) {
+  const u = upd, busy = ["downloading", "installing"].includes(u.state);
+  const c = card("Updates", "⬆", "sky", u.newer ? pill("v" + u.latest + " available", "ok") : u.latest ? pill("up to date", "good") : null);
+  kv(c, [["Installed", "v" + u.current], ["Latest", u.latest ? "v" + u.latest : (admin && u.error ? null : "—")],
+    ["Checked", u.checked !== undefined ? (u.checked ? new Date(u.checked * 1000).toLocaleString() : "not yet (once a day)") : undefined]]);
+  if (u.error && admin) c.appendChild(el("div", "err small", "⚠ " + u.error));
+  if (u.newer && admin) {
+    if (u.notes) { const d = el("details"); d.appendChild(el("summary", null, "What's new in v" + u.latest)); d.appendChild(el("pre", "small", u.notes)); c.appendChild(d); }
+    if (u.url) { const a = el("a", "small", "Release page ↗"); a.href = u.url; a.target = "_blank"; a.rel = "noopener"; c.appendChild(a); }
+    if (!u.signed) c.appendChild(el("div", "hint", "This release isn't signed yet, so it can't be installed from here. Once SHA256SUMS.asc is attached to it, the Update button appears."));
+  }
+  if (u.state === "downloading") c.appendChild(el("div", "hint", "⏳ Downloading and checking the signature…"));
+  if (u.state === "installing") c.appendChild(el("div", "hint", "⏳ Installing: dongie restarts, this page reloads by itself."));
+  if (u.result && admin) { const r = u.result; c.appendChild(el("div", "small " + (r.ok ? "good" : "bad"), (r.ok ? "✓ " : "⚠ ") + r.message + " · " + new Date(r.at * 1000).toLocaleString())); }
+  if (updMsg) c.appendChild(el("div", "small bad", updMsg));
+  if (admin) {
+    const a = el("div", "actions");
+    const chk = el("button", null, "🔍 Check now"); chk.disabled = busy;
+    chk.onclick = async () => { chk.disabled = true; updMsg = ""; try { upd = await api("/api/update/check", {method: "POST"}); } catch (e) { updMsg = "⚠ " + e.message; } renderHeader(); renderTab(); };
+    a.appendChild(chk);
+    if (u.newer && u.signed) {
+      const go2 = el("button", "pri", "⬆ Update to v" + u.latest); go2.disabled = busy;
+      go2.onclick = async () => {
+        if (!confirm("Update dongie from v" + u.current + " to v" + u.latest + "?\n\nIt downloads ~3 MB, checks the signature, installs and restarts dongie (the page is gone for a few seconds). If the new version doesn't start, the old one comes back by itself.")) return;
+        updMsg = "";
+        try { await api("/api/update/apply", {method: "POST"}); upd.state = "downloading"; if (!updPoll) updPoll = setInterval(loadUpdate, 3000); } catch (e) { updMsg = "⚠ " + e.message; }
+        renderTab();
+      };
+      a.appendChild(go2);
+    }
+    c.appendChild(a);
+  }
+  return c;
+}
+
 function renderSystem() {
   const s = status, sy = s.system, g = $("systemGrid"), admin = me.role === "admin"; g.textContent = "";
   const used = sy.mem_total_kb - sy.mem_available_kb;
@@ -1004,6 +1050,7 @@ function renderSystem() {
   kv(c1, [["Model", sy.model], ["OS", sy.os], ["Kernel", sy.kernel], ["Cores", String(sy.cpus)]]);
   if (admin) { const a = el("div", "actions"); a.appendChild(actBtn("⏻ Reboot", "reboot", "Reboot " + (sy.hostname || "the dongle") + "? It will be offline for about a minute.", true)); c1.appendChild(a); }
   g.appendChild(c1);
+  if (upd) g.appendChild(updateCard(admin));
 
   const c2 = card("Temperatures", "🌡", "peach");
   tiles(c2, sy.temps.map(t => [t[0], t[1].toFixed(1), "°C", t[1] < 60 ? "good" : t[1] < 75 ? "ok" : "bad"]));
@@ -2087,7 +2134,7 @@ $("logoutBtn").onclick = async () => { await api("/api/logout", {method: "POST"}
 $("loginForm").addEventListener("submit", async ev => {
   if (ev.submitter && ev.submitter.value === "cancel") return;
   ev.preventDefault(); $("lgo").disabled = true; $("lerr").textContent = "";
-  try { await api("/api/login", {method: "POST", json: {user: $("lu").value, pass: $("lp").value}}); $("lp").value = ""; $("loginDlg").close(); await loadMe(); refresh(true); loadMsgs(); loadCalls(true); loadNet(true); }
+  try { await api("/api/login", {method: "POST", json: {user: $("lu").value, pass: $("lp").value}}); $("lp").value = ""; $("loginDlg").close(); await loadMe(); refresh(true); loadMsgs(); loadCalls(true); loadNet(true); loadUpdate(); }
   catch (e) { $("lerr").textContent = e.message; }
   finally { $("lgo").disabled = false; }
 });
@@ -2097,7 +2144,8 @@ $("text").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey
 
 (async () => {
   try { await loadMe(); } catch (e) { $("subtitle").textContent = "⚠ " + e.message; }
-  onHash(); await refresh(); loadMsgs(); smsCount();
+  onHash(); await refresh(); loadMsgs(); smsCount(); loadUpdate();
+  setInterval(() => { if (!document.hidden) loadUpdate(); }, 3600 * 1000);
   // While the tab is in the background nothing is fetched (it's all paid LTE
   // data on the stick's side), except a slow call/SMS check so an incoming call
   // still rings; coming back fetches everything at once.

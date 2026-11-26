@@ -38,6 +38,7 @@ pub struct App {
     pub ims: crate::ims::Ims,
     pub netsel: crate::netsel::NetSel,
     pub contacts: Arc<tokio::sync::RwLock<crate::contacts::Contacts>>,
+    pub update: crate::update::Shared,
     pub sessions: Arc<Sessions>,
     pub login_gate: Arc<tokio::sync::Mutex<()>>,
 }
@@ -145,6 +146,9 @@ pub fn web_router(app: App) -> Router {
         .route("/api/login", post(login))
         .route("/api/logout", post(logout))
         .route("/api/status", get(status))
+        .route("/api/update", get(update_info))
+        .route("/api/update/check", post(update_check))
+        .route("/api/update/apply", post(update_apply))
         .route("/api/history", get(history))
         .route("/api/messages", get(messages).post(send))
         .route("/api/messages/read", post(mark_read))
@@ -197,6 +201,60 @@ async fn index() -> impl IntoResponse {
         ],
         Html(INDEX),
     )
+}
+
+/// GET /api/update: installed/latest version (guests: only whether there is one).
+async fn update_info(State(app): State<App>, h: HeaderMap) -> Response {
+    let access = access(&app, &h);
+    if matches!(access, Access::Denied) {
+        return err(StatusCode::UNAUTHORIZED, "login required");
+    }
+    let i = {
+        let mut s = app.update.write().await;
+        s.settle();
+        s.clone()
+    };
+    match access {
+        Access::Admin(_) => Json(i).into_response(),
+        _ => Json(i.for_guest()).into_response(),
+    }
+}
+
+/// POST /api/update/check (admin): ask GitHub now.
+async fn update_check(State(app): State<App>, h: HeaderMap) -> Response {
+    if let Err(r) = require_admin(&app, &h, true) {
+        return r;
+    }
+    crate::update::check(&app.cfg.update_repo, &app.update).await;
+    let i = {
+        let mut s = app.update.write().await;
+        s.settle();
+        s.clone()
+    };
+    Json(i).into_response()
+}
+
+/// POST /api/update/apply (admin): download, verify, hand over to the root helper.
+async fn update_apply(State(app): State<App>, h: HeaderMap) -> Response {
+    let user = match require_admin(&app, &h, true) {
+        Ok(u) => u,
+        Err(r) => return r,
+    };
+    {
+        let mut s = app.update.write().await;
+        if s.state != "idle" {
+            return err(StatusCode::CONFLICT, "an update is already running");
+        }
+        if !s.newer || !s.signed {
+            return err(StatusCode::BAD_REQUEST, "no signed newer release to install");
+        }
+        s.state = "downloading".into();
+        s.error = None;
+        eprintln!("update: {user} installs {}", s.tag.as_deref().unwrap_or("?"));
+    }
+    let (dir, shared) = (app.cfg.state_dir.clone(), app.update.clone());
+    tokio::spawn(async move { crate::update::apply(&dir, shared).await });
+    Json(json!({ "ok": true })).into_response()
 }
 
 async fn me(State(app): State<App>, h: HeaderMap) -> Response {

@@ -12,6 +12,8 @@
 | `api_allow_sms` | `true` | open API may read/send SMS |
 | `anonymous_guest` | `true` | dashboard visible without login |
 | `guest_networks` | `[]` | where `anonymous_guest` applies, as networks (CIDR), e.g. `["192.168.100.0/24", "100.64.0.0/10"]` for the bridge/hotspot and the tailnet. Other clients get the login. Empty = everyone who reaches the web UI |
+| `update_check` | `true` | look for a new release once a day (GitHub API, ~5 KB); the UI shows a badge, installing is an admin's click |
+| `update_repo` | `derpyspike/dongie-rs` | where releases come from |
 | `users_file` | `/etc/dongie/users` | accounts |
 | `state_dir` | `/var/lib/dongie` | `usage.json` |
 | `qmi_device` | `/dev/wwan0qmi0` | must match the sudoers file |
