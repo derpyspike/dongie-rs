@@ -33,6 +33,8 @@ pub struct Station {
     pub ssid: Option<String>,
     pub bssid: Option<String>,
     pub signal_dbm: Option<f64>,
+    /// NetworkManager's 0-100 % (always there; dBm needs `iw`)
+    pub signal_pct: Option<u8>,
     pub freq_mhz: Option<f64>,
     pub rx_bitrate: Option<String>,
     pub tx_bitrate: Option<String>,
@@ -121,6 +123,22 @@ fn parse_link(t: &str) -> Option<Station> {
     Some(s)
 }
 
+/// `iw` values win (they are more exact); NetworkManager fills the gaps.
+fn merge_station(iw: Option<Station>, nm: Option<crate::nm::WifiLink>, conn_ssid: Option<String>) -> Station {
+    let mut st = iw.unwrap_or_default();
+    if let Some(l) = nm {
+        st.ssid = st.ssid.or(l.ssid);
+        st.bssid = st.bssid.or(l.bssid);
+        st.freq_mhz = st.freq_mhz.or(l.freq_mhz.map(f64::from));
+        st.signal_pct = l.strength;
+        if st.tx_bitrate.is_none() {
+            st.tx_bitrate = l.bitrate_kbps.map(|k| format!("{:.1} MBit/s", k as f64 / 1000.0));
+        }
+    }
+    st.ssid = st.ssid.or(conn_ssid);
+    st
+}
+
 async fn saved_wifi() -> Vec<Saved> {
     crate::nm::shared().await.map(|s| saved_from(&s)).unwrap_or_default()
 }
@@ -155,12 +173,16 @@ pub async fn collect(hotspot_con: &str) -> Wifi {
         .into();
     }
     if w.mode == "client" {
-        w.station = link.as_deref().and_then(parse_link);
-        if let Some(s) = w.station.as_mut() {
-            s.ip = cmd::run("ip", &["-j", "-4", "addr", "show", "dev", IFACE])
-                .await
-                .and_then(|j| crate::status::first_ipv4(&j));
-        }
+        // `iw` (dBm, rx/tx rates) when installed, NetworkManager for the rest:
+        // client mode always gets a station, so the UI can show the network
+        let (nl, ip) = tokio::join!(
+            crate::nm::wifi_link(IFACE),
+            cmd::run("ip", &["-j", "-4", "addr", "show", "dev", IFACE])
+        );
+        let conn_ssid = nm.as_ref().and_then(|s| s.on_device(IFACE)).and_then(|c| c.ssid());
+        let mut st = merge_station(link.as_deref().and_then(parse_link), nl, conn_ssid);
+        st.ip = ip.and_then(|j| crate::status::first_ipv4(&j));
+        w.station = Some(st);
     }
     w.hotspot_ssid = saved.iter().find(|s| s.name == hotspot_con).and_then(|s| s.ssid.clone());
     // nmcli printed 0 for "automatic" too
@@ -424,6 +446,31 @@ pub async fn forget(name: &str, hotspot_con: &str) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn station_without_iw_comes_from_networkmanager() {
+        let nm = crate::nm::WifiLink {
+            ssid: Some("HomeNet_5A2B".into()),
+            bssid: Some("D2:6E:0E:36:2A:84".into()),
+            freq_mhz: Some(2462),
+            strength: Some(83),
+            bitrate_kbps: Some(65000),
+        };
+        let st = super::merge_station(None, Some(nm.clone()), None);
+        assert_eq!(st.ssid.as_deref(), Some("HomeNet_5A2B"));
+        assert_eq!(st.freq_mhz, Some(2462.0));
+        assert_eq!(st.signal_pct, Some(83));
+        assert_eq!(st.signal_dbm, None);
+        assert_eq!(st.tx_bitrate.as_deref(), Some("65.0 MBit/s"));
+        // iw wins where it has values
+        let iw = super::Station { signal_dbm: Some(-42.0), tx_bitrate: Some("13.0 MBit/s".into()), ..Default::default() };
+        let st = super::merge_station(Some(iw), Some(nm), None);
+        assert_eq!(st.signal_dbm, Some(-42.0));
+        assert_eq!(st.tx_bitrate.as_deref(), Some("13.0 MBit/s"));
+        // nothing from NM either: the profile's SSID at least
+        let st = super::merge_station(None, None, Some("x".into()));
+        assert_eq!(st.ssid.as_deref(), Some("x"));
+    }
+
     use super::*;
 
     #[test]

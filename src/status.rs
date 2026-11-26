@@ -631,6 +631,12 @@ impl Collector {
             cmd::run("/usr/sbin/iw", &["dev", "wlan0", "station", "dump"]),
             cmd::sudo(&["/usr/bin/cat", "/var/lib/NetworkManager/dnsmasq-wlan0.leases"]),
         );
+        // images where the hotspot is a bridge port served by a standalone
+        // dnsmasq (OpenStick-Builder): its lease file is world-readable
+        let leases = match (leases, tokio::fs::read_to_string("/var/lib/misc/dnsmasq.leases").await.ok()) {
+            (Some(a), Some(b)) => Some(a + "\n" + &b),
+            (a, b) => a.or(b),
+        };
         if let Some(c) = nm.as_ref().and_then(|s| s.by_id(&self.cfg.hotspot_connection)) {
             h.active = c.activated();
             h.ssid = c.ssid();
@@ -642,6 +648,21 @@ impl Collector {
                 }
             });
             h.address = Some(c.ipv4_addresses().join(", ")).filter(|v| !v.is_empty());
+            // a bridge port (ipv4 disabled) has its address on the bridge
+            if h.address.is_none() {
+                // connection.master is an interface name or the bridge profile's UUID
+                let br = c.str("connection", "master").filter(|m| !m.is_empty()).map(|m| {
+                    nm.as_ref()
+                        .and_then(|s| s.conns.iter().find(|x| x.uuid == m))
+                        .and_then(|x| x.str("connection", "interface-name"))
+                        .unwrap_or(m)
+                });
+                if let Some(br) = br {
+                    h.address = cmd::run("ip", &["-j", "-4", "addr", "show", "dev", &br])
+                        .await
+                        .and_then(|j| first_ipv4(&j));
+                }
+            }
         }
         if h.active {
             if let Some(t) = info {

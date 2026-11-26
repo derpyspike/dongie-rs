@@ -21,6 +21,9 @@ pub struct Config {
     pub api_allow_sms: bool,
     /// Show the dashboard (guest view, no SMS) without logging in.
     pub anonymous_guest: bool,
+    /// Where `anonymous_guest` applies: client networks as CIDR, e.g. the
+    /// bridge/hotspot and the tailnet. Empty = from everywhere the web UI listens.
+    pub guest_networks: Vec<String>,
     pub users_file: PathBuf,
     pub state_dir: PathBuf,
     pub qmi_device: String,
@@ -122,6 +125,7 @@ impl Default for Config {
             api_enabled: true,
             api_allow_sms: true,
             anonymous_guest: true,
+            guest_networks: vec![],
             users_file: "/etc/dongie/users".into(),
             state_dir: "/var/lib/dongie".into(),
             qmi_device: "/dev/wwan0qmi0".into(),

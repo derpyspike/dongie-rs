@@ -67,10 +67,56 @@ fn access(app: &App, h: &HeaderMap) -> Access {
             Role::Guest => Access::Guest(Some(s.user)),
         };
     }
-    if app.cfg.anonymous_guest {
+    if app.cfg.anonymous_guest && guest_network_ok(&app.cfg.guest_networks, peer(h)) {
         Access::Guest(None)
     } else {
         Access::Denied
+    }
+}
+
+/// Set by `peer_layer` from the TCP connection; a client-sent one is dropped.
+const PEER: &str = "x-dongie-peer";
+
+fn peer(h: &HeaderMap) -> Option<std::net::IpAddr> {
+    h.get(PEER)?.to_str().ok()?.parse().ok()
+}
+
+/// Puts the client's address into the request for `access` (which only sees
+/// headers), after removing any client-sent copy.
+pub async fn peer_layer(mut req: axum::extract::Request, next: axum::middleware::Next) -> Response {
+    req.headers_mut().remove(PEER);
+    let ip = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|c| c.0.ip().to_canonical());
+    if let Some(v) = ip.and_then(|ip| HeaderValue::from_str(&ip.to_string()).ok()) {
+        req.headers_mut().insert(PEER, v);
+    }
+    next.run(req).await
+}
+
+/// No list = everywhere; otherwise the client must be in one of the networks
+/// (unknown address = no).
+fn guest_network_ok(nets: &[String], ip: Option<std::net::IpAddr>) -> bool {
+    if nets.is_empty() {
+        return true;
+    }
+    let Some(ip) = ip else { return false };
+    nets.iter().filter_map(|n| crate::wgedit::parse_cidr(n)).any(|(net, p)| in_net(ip, net, p))
+}
+
+fn in_net(ip: std::net::IpAddr, net: std::net::IpAddr, prefix: u32) -> bool {
+    use std::net::IpAddr::{V4, V6};
+    match (ip, net) {
+        (V4(a), V4(n)) => {
+            let m = if prefix == 0 { 0 } else { u32::MAX << (32 - prefix) };
+            u32::from(a) & m == u32::from(n) & m
+        }
+        (V6(a), V6(n)) => {
+            let m = if prefix == 0 { 0 } else { u128::MAX << (128 - prefix) };
+            u128::from(a) & m == u128::from(n) & m
+        }
+        _ => false,
     }
 }
 
@@ -135,6 +181,7 @@ pub fn web_router(app: App) -> Router {
         .route("/api/wifi/activate", post(wifi_activate))
         .route("/api/wifi/forget", post(wifi_forget))
         .layer(axum::middleware::from_fn(crate::squeeze::layer))
+        .layer(axum::middleware::from_fn(peer_layer))
         .with_state(app)
 }
 
@@ -163,7 +210,8 @@ async fn me(State(app): State<App>, h: HeaderMap) -> Response {
     Json(json!({
         "user": user,
         "role": role,
-        "anonymous_guest": app.cfg.anonymous_guest,
+        // effective for this client (guest_networks may exclude it)
+        "anonymous_guest": app.cfg.anonymous_guest && guest_network_ok(&app.cfg.guest_networks, peer(&h)),
         "sms_available": app.sms.is_some(),
         // fresh install: tell the login dialog how to create the first user
         "no_users": users::load(&app.cfg.users_file).is_empty(),
@@ -1039,5 +1087,26 @@ pub async fn bind_retry(addr: &str) -> TcpListener {
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{guest_network_ok, in_net};
+
+    #[test]
+    fn guest_networks() {
+        let ip = |s: &str| Some(s.parse().unwrap());
+        let nets = vec!["192.168.100.0/24".to_string(), "100.64.0.0/10".into(), "dead:beef::/64".into()];
+        assert!(guest_network_ok(&nets, ip("192.168.100.42")));
+        assert!(guest_network_ok(&nets, ip("100.101.102.103")));
+        assert!(guest_network_ok(&nets, ip("dead:beef::1234")));
+        assert!(!guest_network_ok(&nets, ip("192.168.1.20"))); // upstream Wi-Fi
+        assert!(!guest_network_ok(&nets, ip("10.0.0.1"))); // LTE side
+        assert!(!guest_network_ok(&nets, ip("2001:db8::1")));
+        assert!(!guest_network_ok(&nets, None));
+        assert!(guest_network_ok(&[], None)); // no list = everywhere
+        assert!(in_net("1.2.3.4".parse().unwrap(), "0.0.0.0".parse().unwrap(), 0));
+        assert!(!in_net("::ffff:1.2.3.4".parse().unwrap(), "1.2.3.0".parse().unwrap(), 24)); // canonicalized before
     }
 }

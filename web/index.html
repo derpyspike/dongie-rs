@@ -430,6 +430,9 @@ function sv(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (c
 function bytes(n) { if (n == null) return "—"; const u = ["B","KB","MB","GB","TB"]; let i = 0; while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; } return (i ? n.toFixed(1) : Math.round(n)) + " " + u[i]; }
 function dur(s) { if (s == null) return "—"; const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + (d || h ? h + "h " : "") + m + "m"; }
 function rate(v, good, ok) { if (v == null) return "bad"; return v > good ? "good" : v >= ok ? "ok" : "bad"; }
+// Wi-Fi client signal: dBm when `iw` is installed, else NetworkManager's %
+function wifiSig(st) { return st.signal_dbm != null ? ["Signal", st.signal_dbm, "dBm", rate(st.signal_dbm, -60, -75)] : ["Signal", st.signal_pct, "%", rate(st.signal_pct, 60, 35)]; }
+function mbit(r) { return r ? r.split(" ")[0] : null; }
 function stateCls(s) { return ["connected","active","Running","activated","attached"].includes(s) ? "good" : ["registered","connecting","searching","activating","Starting","enabling","enabled"].includes(s) ? "ok" : "bad"; }
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue("--" + n).trim(); }
 function sigLevel(l) {
@@ -581,9 +584,9 @@ function renderHome() {
   const hs = s.hotspot, ts = s.tailscale;
   const w = s.wifi || {mode: "off"};
   const c3 = card("Wi-Fi", "📶", "peach", pill(w.mode, w.mode === "off" ? "" : "good"));
-  if (w.mode === "client" && w.station) {
-    const st = w.station; hero(c3, st.ssid || "—", "client · " + (st.ip || "no IP"));
-    tiles(c3, [["Signal", st.signal_dbm, "dBm", rate(st.signal_dbm, -60, -75)], ["Channel", chFromFreq(st.freq_mhz)], ["RX", st.rx_bitrate ? st.rx_bitrate.split(" ")[0] : null, "Mbit/s"]]);
+  if (w.mode === "client") {
+    const st = w.station || {}; hero(c3, st.ssid || w.connection || "—", "client · " + (st.ip || "no IP"));
+    tiles(c3, [wifiSig(st), ["Channel", chFromFreq(st.freq_mhz)], ["Speed", mbit(st.rx_bitrate || st.tx_bitrate), "Mbit/s"]]);
   } else {
     hero(c3, hs.ssid || w.hotspot_ssid || "—", hs.active ? "hotspot · " + hs.client_count + " client" + (hs.client_count === 1 ? "" : "s") : "off");
     if (hs.active) tiles(c3, [["Band", hs.band], ["Channel", (hs.channel || "").split(" ")[0] || null], ["TX", (hs.txpower || "").replace(".00", "") || null]]);
@@ -771,11 +774,11 @@ function renderNetwork() {
   const hs = s.hotspot, w = s.wifi || {mode: "off"};
   // --- Wi-Fi
   const c1 = card("Wi-Fi", "📶", "peach", pill(w.mode, w.mode === "off" ? "" : "good"));
-  if (w.mode === "client" && w.station) {
-    const st = w.station;
-    hero(c1, st.ssid || "—", "client mode · " + (st.ip || "no IP"));
-    tiles(c1, [["Signal", st.signal_dbm, "dBm", rate(st.signal_dbm, -60, -75)], ["Channel", chFromFreq(st.freq_mhz)], ["RX", st.rx_bitrate ? st.rx_bitrate.split(" ")[0] : null, "Mbit/s"], ["TX", st.tx_bitrate ? st.tx_bitrate.split(" ")[0] : null, "Mbit/s"]]);
-    kv(c1, [["Frequency", st.freq_mhz ? st.freq_mhz + " MHz" : null], ["IP", st.ip], ["BSSID", admin ? st.bssid : undefined], ["Connection", w.connection]]);
+  if (w.mode === "client") {
+    const st = w.station || {};
+    hero(c1, st.ssid || w.connection || "—", "client mode · " + (st.ip || "no IP"));
+    tiles(c1, [wifiSig(st), ["Channel", chFromFreq(st.freq_mhz)], st.rx_bitrate ? ["RX", mbit(st.rx_bitrate), "Mbit/s"] : ["Link", mbit(st.tx_bitrate), "Mbit/s"], ["TX", st.rx_bitrate ? mbit(st.tx_bitrate) : undefined, "Mbit/s"]].filter(t => t[1] !== undefined));
+    kv(c1, [["Frequency", st.freq_mhz ? st.freq_mhz + " MHz" : null], ["IP", st.ip], ["BSSID", admin ? st.bssid : undefined], ["Connection", w.connection], ["Hotspot", "\"" + (w.hotspot_ssid || "?") + "\" is off while the stick is a client (one radio, one mode)"]]);
   } else if (w.mode === "hotspot") {
     hero(c1, hs.ssid || "—", "hotspot · " + hs.client_count + " client" + (hs.client_count === 1 ? "" : "s"));
     tiles(c1, [["Band", hs.band], ["Channel", (hs.channel || "").split(" ")[0] || null], ["TX", (hs.txpower || "").replace(".00", "") || null], ["Address", (hs.address || "").split("/")[0] || null]]);
@@ -1211,7 +1214,7 @@ async function loadReticulum(force) {
   retAt = Date.now(); if (tab === "reticulum" || tab === "home") renderTab();
 }
 setInterval(() => { if (!document.hidden && (tab === "reticulum" || tab === "home")) loadReticulum(false); }, 10000);
-function rate(bps) { return bps == null ? "—" : bytes(bps / 8) + "/s"; }
+function bpsRate(bps) { return bps == null ? "—" : bytes(bps / 8) + "/s"; }
 function renderReticulum() {
   const g = $("reticulumGrid"); g.textContent = "";
   if (!ret) { const c = card("Reticulum", "🕸", "teal"); c.appendChild(el("div", retErr ? "err" : "hint", retErr || "Loading…")); g.appendChild(c); return; }
@@ -1239,7 +1242,7 @@ function renderReticulum() {
     if (REDACT) name = name.replace(/[A-Za-z0-9.-]+\.[A-Za-z]{2,}|\d+\.\d+\.\d+\.\d+/g, "transport.example");
     hero(c2, name, i.type, i.up ? "good" : "bad");
     tiles(c2, [["Status", i.up ? "up" : "down", null, i.up ? "good" : "bad"], ["Received", bytes(i.rxb)], ["Sent", bytes(i.txb)], ["Announces", i.announces_in_per_s != null ? i.announces_in_per_s.toFixed(1) : null, "/s"]]);
-    kv(c2, [["Now", rate(i.rxs) + " in · " + rate(i.txs) + " out"]]);
+    kv(c2, [["Now", bpsRate(i.rxs) + " in · " + bpsRate(i.txs) + " out"]]);
   });
   g.appendChild(c2);
 
@@ -1537,6 +1540,7 @@ function renderSettings() {
 
   const c1 = card("General", "🐹", "mauve");
   stgRow(c1, "Dashboard without login (guest view)", "anonymous_guest", stgCheck("anonymous_guest"));
+  stgRow(c1, "Guest view only from", "guest_networks", stgText("guest_networks", {list: true, ph: "192.168.100.0/24, 100.64.0.0/10, …"}), "Comma separated networks (CIDR) whose devices see the guest view without login. Empty = everyone who reaches the web UI.");
   stgRow(c1, "Keep SMS + call log across restarts", "persist", stgCheck("persist"), "Compressed and checksummed in the state directory; off = RAM only. Contacts are always kept.");
   stgRow(c1, "USSD codes", "ussd", stgCheck("ussd"), "⚠ The modem leaves LTE for 3G for USSD: data and Tailscale stall for ~20-30 s; on the UZ801 the reply often never comes.");
   stgRow(c1, "Refresh every (s)", "poll_secs", stgText("poll_secs", {num: true}));

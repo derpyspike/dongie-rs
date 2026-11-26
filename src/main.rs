@@ -351,7 +351,7 @@ fn serve(cfg: config::Config, cfg_path: String) {
             let extra_app = app.clone();
             tokio::spawn(async move {
                 let l = web::bind_retry(&addr).await;
-                if let Err(e) = axum::serve(l, web::web_router(extra_app)).await {
+                if let Err(e) = axum::serve(l, web::web_router(extra_app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await {
                     eprintln!("web server {addr}: {e}");
                 }
             });
@@ -359,7 +359,7 @@ fn serve(cfg: config::Config, cfg_path: String) {
         let web_addr = cfg.web_listen.clone();
         let web = tokio::spawn(async move {
             let l = web::bind_retry(&web_addr).await;
-            axum::serve(l, web::web_router(web_app)).await
+            axum::serve(l, web::web_router(web_app).into_make_service_with_connect_info::<std::net::SocketAddr>()).await
         });
         if cfg.api_enabled {
             let api_addr = cfg.api_listen.clone();

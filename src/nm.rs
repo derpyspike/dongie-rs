@@ -155,6 +155,45 @@ pub async fn snapshot() -> Result<Snapshot, String> {
     Ok(Snapshot { conns })
 }
 
+/// The access point an interface is joined to, as NetworkManager sees it
+/// (no `iw` needed: some images don't ship it).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WifiLink {
+    pub ssid: Option<String>,
+    pub bssid: Option<String>,
+    pub freq_mhz: Option<u32>,
+    /// 0-100 %
+    pub strength: Option<u8>,
+    /// current link rate, kbit/s
+    pub bitrate_kbps: Option<u32>,
+}
+
+pub async fn wifi_link(iface: &str) -> Option<WifiLink> {
+    let c = bus().await.ok()?;
+    let root = proxy(&c, "/org/freedesktop/NetworkManager", NM).await.ok()?;
+    let dev: OwnedObjectPath = root.call("GetDeviceByIpIface", &(iface,)).await.ok()?;
+    let w = proxy(&c, dev.as_str(), "org.freedesktop.NetworkManager.Device.Wireless").await.ok()?;
+    let ap: OwnedObjectPath = w.get_property("ActiveAccessPoint").await.ok()?;
+    if ap.as_str() == "/" {
+        return None;
+    }
+    let bitrate_kbps = w.get_property::<u32>("Bitrate").await.ok().filter(|b| *b > 0);
+    let a = proxy(&c, ap.as_str(), "org.freedesktop.NetworkManager.AccessPoint").await.ok()?;
+    let ssid = a
+        .get_property::<Vec<u8>>("Ssid")
+        .await
+        .ok()
+        .filter(|b| !b.is_empty())
+        .map(|b| String::from_utf8_lossy(&b).into_owned());
+    Some(WifiLink {
+        ssid,
+        bssid: a.get_property::<String>("HwAddress").await.ok().filter(|s| !s.is_empty()),
+        freq_mhz: a.get_property::<u32>("Frequency").await.ok().filter(|f| *f > 0),
+        strength: a.get_property::<u8>("Strength").await.ok(),
+        bitrate_kbps,
+    })
+}
+
 /// The snapshot of the current status round, shared by its parts (LTE, hotspot,
 /// Wi-Fi) for a moment so one round takes it once.
 pub async fn shared() -> Option<Snapshot> {
@@ -199,5 +238,12 @@ mod tests {
             );
         }
         assert!(!s.conns.is_empty());
+    }
+
+    /// `cargo test -- --ignored nm_wifi_link`
+    #[tokio::test]
+    #[ignore]
+    async fn nm_wifi_link_live() {
+        eprintln!("{:?}", super::wifi_link("wlan0").await);
     }
 }
