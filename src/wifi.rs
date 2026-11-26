@@ -175,10 +175,8 @@ pub async fn collect(hotspot_con: &str) -> Wifi {
     if w.mode == "client" {
         // `iw` (dBm, rx/tx rates) when installed, NetworkManager for the rest:
         // client mode always gets a station, so the UI can show the network
-        let (nl, ip) = tokio::join!(
-            crate::nm::wifi_link(IFACE),
-            cmd::run("ip", &["-j", "-4", "addr", "show", "dev", IFACE])
-        );
+        let (nl, ip) =
+            tokio::join!(crate::nm::wifi_link(IFACE), cmd::run("ip", &["-j", "-4", "addr", "show", "dev", IFACE]));
         let conn_ssid = nm.as_ref().and_then(|s| s.on_device(IFACE)).and_then(|c| c.ssid());
         let mut st = merge_station(link.as_deref().and_then(parse_link), nl, conn_ssid);
         st.ip = ip.and_then(|j| crate::status::first_ipv4(&j));
@@ -462,7 +460,8 @@ mod tests {
         assert_eq!(st.signal_dbm, None);
         assert_eq!(st.tx_bitrate.as_deref(), Some("65.0 MBit/s"));
         // iw wins where it has values
-        let iw = super::Station { signal_dbm: Some(-42.0), tx_bitrate: Some("13.0 MBit/s".into()), ..Default::default() };
+        let iw =
+            super::Station { signal_dbm: Some(-42.0), tx_bitrate: Some("13.0 MBit/s".into()), ..Default::default() };
         let st = super::merge_station(Some(iw), Some(nm), None);
         assert_eq!(st.signal_dbm, Some(-42.0));
         assert_eq!(st.tx_bitrate.as_deref(), Some("13.0 MBit/s"));

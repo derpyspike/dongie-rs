@@ -658,9 +658,8 @@ impl Collector {
                         .unwrap_or(m)
                 });
                 if let Some(br) = br {
-                    h.address = cmd::run("ip", &["-j", "-4", "addr", "show", "dev", &br])
-                        .await
-                        .and_then(|j| first_ipv4(&j));
+                    h.address =
+                        cmd::run("ip", &["-j", "-4", "addr", "show", "dev", &br]).await.and_then(|j| first_ipv4(&j));
                 }
             }
         }

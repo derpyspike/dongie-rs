@@ -85,10 +85,8 @@ fn peer(h: &HeaderMap) -> Option<std::net::IpAddr> {
 /// headers), after removing any client-sent copy.
 pub async fn peer_layer(mut req: axum::extract::Request, next: axum::middleware::Next) -> Response {
     req.headers_mut().remove(PEER);
-    let ip = req
-        .extensions()
-        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-        .map(|c| c.0.ip().to_canonical());
+    let ip =
+        req.extensions().get::<axum::extract::ConnectInfo<std::net::SocketAddr>>().map(|c| c.0.ip().to_canonical());
     if let Some(v) = ip.and_then(|ip| HeaderValue::from_str(&ip.to_string()).ok()) {
         req.headers_mut().insert(PEER, v);
     }
@@ -1107,6 +1105,7 @@ mod tests {
         assert!(!guest_network_ok(&nets, None));
         assert!(guest_network_ok(&[], None)); // no list = everywhere
         assert!(in_net("1.2.3.4".parse().unwrap(), "0.0.0.0".parse().unwrap(), 0));
-        assert!(!in_net("::ffff:1.2.3.4".parse().unwrap(), "1.2.3.0".parse().unwrap(), 24)); // canonicalized before
+        assert!(!in_net("::ffff:1.2.3.4".parse().unwrap(), "1.2.3.0".parse().unwrap(), 24));
+        // canonicalized before
     }
 }
